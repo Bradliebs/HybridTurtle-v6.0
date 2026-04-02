@@ -42,3 +42,47 @@
 - scan-engine.ts exports 5 functions; only 3 tested via core-lite proxy
 - packages/risk/src/sizing.test.ts is comprehensive (17 tests, floor-down verified)
 - execute/route.test.ts is the heaviest file (23 tests, 39s runtime with real timeouts)
+
+### 2026-04-02 — scan-engine.test.ts Created (ATR Spike Detection)
+
+**File:** `src/lib/scan-engine.test.ts` — 20 tests, all passing.
+
+**Scope:** ATR spike detection behavior only (first test file for this sacred file).
+
+**What's tested:**
+- Median ATR spike calculation (medianAtr14 × 1.3 threshold, boundary, fallback to atrSpiking)
+- Spike action + status demotion (READY→WATCH, WATCH stays, FAR stays, no-spike passthrough)
+- DI direction independence (bullish/bearish DI, high/low/boundary ADX — all produce SOFT_CAP)
+- HARD_BLOCK regression guard (6 parameterized cases: no input combination produces HARD_BLOCK)
+
+**Mock pattern for runFullScan:**
+- 10 `vi.mock()` declarations needed: prisma, market-data, adaptive-atr-buffer, position-sizer, risk-gates, scan-guards, data-validator, earnings-calendar, hurst
+- Single-ticker universe via `prisma.stock.findMany` mock
+- `calculateAdaptiveBuffer` mock controls entry trigger → controls READY/WATCH/FAR classification
+- `evaluateEarningsRisk` returns benign `action: null` to avoid interfering with status
+
+**Key architecture note:** ATR spike detection runs regardless of `passesAllFilters` — it sits between Stage 3 (classification) and the earnings check, before the `passesAllFilters && status !== 'FAR'` gate.
+
+**Pre-existing failure:** `breakout-failure-detector.test.ts` has 1 date-sensitive test failing (day-boundary issue). Not related to scan-engine.
+
+### 2026-04-02 — scan-engine.test.ts Created (ATR Spike Detection)
+
+**File:** `src/lib/scan-engine.test.ts` — 20 tests, all passing.
+
+**Scope:** ATR spike detection behavior only (first test file for this sacred file).
+
+**What's tested:**
+- Median ATR spike calculation (medianAtr14 × 1.3 threshold, boundary, fallback to atrSpiking)
+- Spike action + status demotion (READY→WATCH, WATCH stays, FAR stays, no-spike passthrough)
+- DI direction independence (bullish/bearish DI, high/low/boundary ADX — all produce SOFT_CAP)
+- HARD_BLOCK never produced (6 parameterized cases ensure no input combination yields HARD_BLOCK)
+
+**Mock pattern for runFullScan:**
+- 10 `vi.mock()` declarations needed: prisma, market-data, adaptive-atr-buffer, position-sizer, risk-gates, scan-guards, data-validator, earnings-calendar, hurst
+- Single-ticker universe via `prisma.stock.findMany` mock
+- `calculateAdaptiveBuffer` mock controls entry trigger → controls READY/WATCH/FAR classification
+- `evaluateEarningsRisk` returns benign `action: null` to avoid interfering with status
+
+**Key architecture note:** ATR spike detection runs regardless of `passesAllFilters` — it sits between Stage 3 (classification) and the earnings check, before the `passesAllFilters && status !== 'FAR'` gate.
+
+**Pre-existing failure:** `breakout-failure-detector.test.ts` has 1 date-sensitive test failing (day-boundary issue). Not related to scan-engine.
