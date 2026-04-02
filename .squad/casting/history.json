@@ -1,0 +1,21 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "The Usual Suspects",
+      "assignment_id": "hybridturtle-v6-init",
+      "used_at": "2026-04-02T21:44:00Z"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "hybridturtle-v6-init": {
+      "universe": "The Usual Suspects",
+      "agents": {
+        "lead": "Keaton",
+        "frontend-dev": "McManus",
+        "backend-dev": "Fenster",
+        "tester": "Hockney"
+      },
+      "created_at": "2026-04-02T21:44:00Z"
+    }
+  }
+}
