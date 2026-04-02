@@ -1,0 +1,9 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-return-await": "warn",
+    "no-throw-literal": "error",
+    "prefer-promise-reject-errors": "warn",
+    "no-async-promise-executor": "error"
+  }
+}
