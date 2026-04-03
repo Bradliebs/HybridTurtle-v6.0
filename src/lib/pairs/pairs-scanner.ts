@@ -198,7 +198,7 @@ export async function getCurrentZScores(): Promise<PairZScore[]> {
   const latest = await prisma.pairZScoreSnapshot.findMany({
     orderBy: { date: 'desc' },
     distinct: ['formationId'],
-    include: {}, // just get the latest per formation
+    // just get the latest per formation
   });
 
   // Enrich with ticker names from formations

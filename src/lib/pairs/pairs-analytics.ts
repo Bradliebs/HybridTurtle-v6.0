@@ -42,7 +42,7 @@ export async function getPairsPerformanceSummary(
   }
 
   const closed = await prisma.pairPosition.findMany({
-    where: where as Parameters<typeof prisma.pairPosition.findMany>[0]['where'],
+    where: where as NonNullable<Parameters<typeof prisma.pairPosition.findMany>[0]>['where'],
     include: { formation: true },
   });
 

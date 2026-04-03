@@ -47,7 +47,7 @@ export async function getPeadPerformanceSummary(
   }
 
   const closed = await prisma.peadPosition.findMany({
-    where: where as Parameters<typeof prisma.peadPosition.findMany>[0]['where'],
+    where: where as NonNullable<Parameters<typeof prisma.peadPosition.findMany>[0]>['where'],
     include: { candidate: true },
   });
 
