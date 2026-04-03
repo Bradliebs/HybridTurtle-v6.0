@@ -3,7 +3,7 @@
  * Consumed by: /api/scan/route.ts
  * Consumes: market-data.ts, position-sizer.ts, risk-gates.ts, scan-guards.ts, modules/adaptive-atr-buffer.ts, prisma.ts, @/types
  * Risk-sensitive: YES
- * Last modified: 2026-02-22
+ * Last modified: 2026-04-02
  * Notes: 7-stage pipeline. Do not add, remove, or reorder stages without explicit instruction.
  */
 // ============================================================
@@ -323,11 +323,8 @@ export async function runFullScan(
         let atrSpikeAction: 'NONE' | 'SOFT_CAP' | 'HARD_BLOCK' = 'NONE';
 
         if (medianSpiking) {
-          if (technicals.adx < 18) {
-            atrSpikeAction = 'SOFT_CAP';
-            if (status === 'READY') status = 'WATCH';
-          }
-          // ADX >= 18: spike noted but no demotion
+          atrSpikeAction = 'SOFT_CAP';
+          if (status === 'READY') status = 'WATCH';
         }
 
         // ── Earnings Calendar Check (between Stage 3 and Stage 5) ──

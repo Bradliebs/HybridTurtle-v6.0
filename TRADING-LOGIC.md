@@ -67,9 +67,7 @@ SCAN PATH:
   2) Stage 2 Technical Filters
     - Hard filters: price>MA200, ADX>=20, +DI>-DI, ATR% cap, data quality
     - Soft rule: efficiency<30 demotes READY->WATCH
-    - ATR spike:
-      bullish DI -> SOFT_CAP (READY->WATCH)
-      bearish DI -> HARD_BLOCK (candidate FAR + fails filters)
+    - ATR spike → SOFT_CAP (READY->WATCH) regardless of DI direction
 
   3) Entry Trigger / Stop Seed
     - entryTrigger = adaptive ATR buffer output
@@ -94,7 +92,7 @@ SCAN PATH:
 
   8) Stage 6 Anti-Chase (3 sub-checks in order)
     a) Failed breakout cooldown:
-       - if failedBreakoutAt exists and < 5 days ago:
+       - if failedBreakoutAt exists and < 3 days ago:
          status = COOLDOWN, skip remaining anti-chase checks
     b) ext_atr guard (DAILY, not Monday-only):
        - ext_atr = (close - entryTrigger) / ATR
@@ -161,8 +159,7 @@ Before technical filters, `validateTickerData()` is called. If data is invalid (
 
 Spike detection uses **median of last 14 ATR values** as baseline: `atr >= medianAtr14 × 1.3`. Falls back to `technicals.atrSpiking` flag if median is unavailable.
 
-- `atrSpiking && bullishDI` → **SOFT_CAP**: demote READY → WATCH
-- `atrSpiking && !bullishDI` → **HARD_BLOCK**: force status to FAR, fail filters
+- `atrSpiking` → **SOFT_CAP**: demote READY → WATCH (regardless of DI direction — deliberate design choice: warning over blocking)
 
 **Hurst Exponent (soft flag):**
 
@@ -182,8 +179,7 @@ distance > 3%  → FAR
 
 **Post-classification overrides** (applied after initial status):
 
-- ATR spike + bullish DI → READY demoted to `WATCH`
-- ATR spike + bearish DI → forced to `FAR` + hard block
+- ATR spike → READY demoted to `WATCH` (SOFT_CAP, no HARD_BLOCK)
 - Efficiency < 30 → READY demoted to `WATCH`
 - ext_atr > 0.8 → overridden to `WAIT_PULLBACK` (see Stage 6)
 - Failed breakout cooldown active → overridden to `COOLDOWN` (see Stage 6)
@@ -211,8 +207,8 @@ Delegates to `validateRiskGates()` — see [§4](#4-risk-gates--6-gates).
 
 Three distinct sub-checks in order:
 
-**6a. Failed Breakout Cooldown** (`FAILED_BREAKOUT_COOLDOWN_DAYS = 5`):
-If `technicals.failedBreakoutAt` exists and < 5 days ago → status forced to `COOLDOWN`, anti-chase bypassed entirely.
+**6a. Failed Breakout Cooldown** (`FAILED_BREAKOUT_COOLDOWN_DAYS = 3`):
+If `technicals.failedBreakoutAt` exists and < 3 days ago → status forced to `COOLDOWN`, anti-chase bypassed entirely.
 
 **6b. ext_atr Volatility Expansion Guard** — **active every day** (not Monday-only):
 `extATR = (price − entryTrigger) / ATR`. If `extATR > 0.8` → status forced to `WAIT_PULLBACK` (candidate kept, breakout blocked). Triggers Mode B pullback continuation check.
@@ -432,7 +428,7 @@ Replaces the old `marketTailwind()`. Consolidates directional regime, volatility
 | Volume Risk | 0–30 | `30 × clamp(1 − (volRatio − 0.6) / 0.6)` |
 | Extension Risk | 0–25 | Both chasing flags = 25; either = 15; none = 0 |
 | Marginal Trend Risk | 0–10 | ADX < 20 → 10; 20–25 → 7; 25–30 → 3; > 30 → 0 |
-| Vol Shock Risk | 0–20 | `atr_spiking` → 20; `atr_collapsing` → 10; else 0 |
+| Vol Shock Risk | 0–20 | `atr_spiking` → 10 (reduced from 20 per OVERLAP-02); `atr_collapsing` → 10; else 0 |
 | Regime Instability | 0–10 | Not stable → 10; stable → 0 |
 
 ### Penalties (applied to NCS)
@@ -730,7 +726,7 @@ Auto-generated one-page battle plan combining: regime, breadth, ready candidates
 
 For profitable exits (> 0.5R, NOT stop-hit):
 
-- **5-day cooldown** required
+- **3-day cooldown** required
 - Must reclaim 20-day high
 - Only considers exits within last 30 days
 

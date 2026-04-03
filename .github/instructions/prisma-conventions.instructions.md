@@ -27,7 +27,7 @@ description: "Use when editing Prisma schema, creating migrations, seeding data,
 
 ## Current scale
 
-- 40 tables total: 24 core + 16 prediction engine.
+- 69 tables total.
 - ~268 tickers in the universe.
 
 ## Seed files

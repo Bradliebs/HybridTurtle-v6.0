@@ -3,9 +3,12 @@
  * Consumed by: PositionsTable.tsx (Reset from T212 button)
  * Consumes: prisma.ts, trading212.ts, trading212-dual.ts
  * Risk-sensitive: YES — overwrites entry price, stop, and initialRisk
- * Last modified: 2026-02-26
+ * Last modified: 2026-07-18
  * Notes: Pulls ground-truth entry price from T212's averagePricePaid,
  *        recalculates stops from scratch. Only for positions with corrupted data.
+ *        Bypasses monotonic stop enforcement (stop-manager.ts) intentionally —
+ *        this is a full position reset, not a regular stop adjustment.
+ *        Safety: requires ?force=true when demoting protection above INITIAL.
  */
 export const dynamic = 'force-dynamic';
 
@@ -98,9 +101,52 @@ export async function POST(request: NextRequest) {
       return apiError(400, 'INVALID_T212_DATA', `T212 returned invalid entry price: ${newEntryPrice}`);
     }
 
+    // ── Safety: skip reset if entry price hasn't actually changed ──
+    const ENTRY_PRICE_TOLERANCE = 0.005; // 0.5% — covers FX rounding and fractional share adjustments
+    const entryPriceDelta = Math.abs(newEntryPrice - position.entryPrice) / position.entryPrice;
+    if (entryPriceDelta < ENTRY_PRICE_TOLERANCE && newShares === position.shares) {
+      return NextResponse.json({
+        success: false,
+        ticker: position.stock.ticker,
+        t212Ticker,
+        message: `No reset needed — T212 entry price ${newEntryPrice.toFixed(2)} matches current ${position.entryPrice.toFixed(2)} (within ${(ENTRY_PRICE_TOLERANCE * 100).toFixed(1)}% tolerance) and shares unchanged.`,
+      }, { status: 200 });
+    }
+
+    // ── Safety: protect advanced stop levels from accidental demotion ──
+    const LEVEL_ORDER = ['INITIAL', 'BREAKEVEN', 'LOCK_08R', 'LOCK_1R_TRAIL'] as const;
+    const oldProtectionLevel = (position.protectionLevel as string) || 'INITIAL';
+    const oldLevelIdx = LEVEL_ORDER.indexOf(oldProtectionLevel as typeof LEVEL_ORDER[number]);
+    const isDemotingProtection = oldLevelIdx > 0; // anything above INITIAL
+
+    if (isDemotingProtection) {
+      const forceParam = request.nextUrl.searchParams.get('force');
+      if (forceParam !== 'true') {
+        return NextResponse.json({
+          success: false,
+          warning: true,
+          ticker: position.stock.ticker,
+          t212Ticker,
+          currentProtectionLevel: oldProtectionLevel,
+          message: `Position ${position.stock.ticker} has protection level '${oldProtectionLevel}'. Resetting will demote to INITIAL. Add ?force=true to confirm.`,
+        }, { status: 409 });
+      }
+      console.warn(
+        `[reset-from-t212] ⚠️ PROTECTION DEMOTION: ${position.stock.ticker} ` +
+        `${oldProtectionLevel} → INITIAL (forced by caller). ` +
+        `Old stop: ${position.currentStop.toFixed(2)}, new stop will be recalculated.`
+      );
+    }
+
     // Recalculate stops from scratch — 5% default initial risk
     const newInitialRisk = newEntryPrice * 0.05;
     const newStop = newEntryPrice - newInitialRisk;
+
+    const resetReason =
+      `BROKER-SYNC RESET: entry ${position.entryPrice.toFixed(2)} → ${newEntryPrice.toFixed(2)}, ` +
+      `stop ${position.currentStop.toFixed(2)} → ${newStop.toFixed(2)}, ` +
+      `protection ${oldProtectionLevel} → INITIAL` +
+      (isDemotingProtection ? ' [DEMOTION — force=true]' : '');
 
     // Atomic update: position + stop history
     await prisma.$transaction([
@@ -110,7 +156,7 @@ export async function POST(request: NextRequest) {
           oldStop: position.currentStop,
           newStop,
           level: 'INITIAL',
-          reason: `Reset from T212: entry ${position.entryPrice.toFixed(2)} → ${newEntryPrice.toFixed(2)}, stop ${position.currentStop.toFixed(2)} → ${newStop.toFixed(2)}`,
+          reason: resetReason,
         },
       }),
       prisma.position.update({
@@ -137,6 +183,7 @@ export async function POST(request: NextRequest) {
         entryPrice: position.entryPrice,
         currentStop: position.currentStop,
         initialRisk: position.initialRisk,
+        protectionLevel: oldProtectionLevel,
       },
       new: {
         entryPrice: newEntryPrice,
@@ -145,7 +192,9 @@ export async function POST(request: NextRequest) {
         shares: newShares,
         currentPrice,
       },
-      message: `Reset ${position.stock.ticker} from T212: entry ${position.entryPrice.toFixed(2)} → ${newEntryPrice.toFixed(2)}, stop → ${newStop.toFixed(2)}`,
+      protectionDemoted: isDemotingProtection,
+      message: `Reset ${position.stock.ticker} from T212: entry ${position.entryPrice.toFixed(2)} → ${newEntryPrice.toFixed(2)}, stop → ${newStop.toFixed(2)}` +
+        (isDemotingProtection ? ` (protection demoted: ${oldProtectionLevel} → INITIAL)` : ''),
     });
   } catch (error) {
     if (error instanceof Trading212Error) {

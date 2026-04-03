@@ -18,7 +18,7 @@ A systematic trading dashboard for momentum trend-following across ~268 tickers 
 - **Auth:** NextAuth JWT (optional — single-user local app)
 - **Pages:** 28 content pages + 5 redirects
 - **API Routes:** 46 route groups (~109 endpoints)
-- **DB Tables:** 40 (24 core + 16 prediction engine)
+- **DB Tables:** 69 (grew from original 24 core + 16 prediction engine)
 - **Prediction Engine:** 17 phases + Phase 6 prediction model (conformal, failure modes, signal weighting, stress test, MI audit, immune system, lead-lag, GNN, Bayesian, Kelly, Meta-RL, VPIN, sentiment, TDA, execution quality, TradePulse, causal invariance, Phase 6 Ridge regression)
 
 ---
@@ -784,7 +784,7 @@ Self-hosted on Windows. Single-user. No cloud deployment.
 
 ```
 prisma/
-  schema.prisma              40 tables
+  schema.prisma              69 tables
   seed.ts                    Ticker universe seeding
   migrations/                Migration history
   backups/                   SQLite backups
@@ -934,7 +934,7 @@ src/
 | Redirect Pages | 5 |
 | API Route Groups | 44 |
 | API Endpoints | ~105 |
-| DB Tables | 40 (24 core + 16 prediction) |
+| DB Tables | 69 |
 | Sacred Files | 6 |
 | Lib Modules | ~75 |
 | Trading Modules | 16 |

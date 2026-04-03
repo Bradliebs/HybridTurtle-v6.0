@@ -57,3 +57,13 @@ prisma/backups/
 
 # persisted caches
 prisma/cache/
+# Squad: ignore runtime state (logs, inbox, sessions)
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream
+HybridTurtle-v6.0-20260402.zip
+backup_extract/
+auto-stop.log

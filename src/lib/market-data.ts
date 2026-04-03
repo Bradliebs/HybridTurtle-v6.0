@@ -875,16 +875,35 @@ export async function getFXRate(fromCurrency: string, toCurrency: string, forceR
     console.warn(`[YF] FX rate failed for ${pair}:`, (error as Error).message);
   }
 
-  // Hardcoded fallbacks (approximate)
+  // Hardcoded fallbacks (approximate, order-of-magnitude correct)
+  // Covers all currencies in the trading universe — see Planning/region_map.csv
   const fallbacks: Record<string, number> = {
     USDGBP: 0.79,
     GBPUSD: 1.27,
     EURGBP: 0.86,
     GBPEUR: 1.16,
     CHFGBP: 0.89,
+    GBPCHF: 1.12,
     DKKGBP: 0.115,
+    GBPDKK: 8.70,
+    SEKGBP: 0.074,
+    GBPSEK: 13.50,
+    AUDGBP: 0.52,
+    GBPAUD: 1.92,
+    CNYGBP: 0.11,
+    GBPCNY: 9.10,
   };
-  return fallbacks[pair] ?? 1;
+
+  const fallbackRate = fallbacks[pair];
+  if (fallbackRate !== undefined) {
+    console.error(`[FX] Live rate unavailable for ${pair} — using hardcoded fallback ${fallbackRate}. Check Yahoo Finance connectivity.`);
+    return fallbackRate;
+  }
+
+  // Fail-closed: unknown pair must NOT silently return 1.0 — that causes catastrophic mis-sizing
+  const err = `[FX] CRITICAL: No FX rate available for pair ${pair}. Live fetch failed and no hardcoded fallback exists. Position sizing must not proceed.`;
+  console.error(err);
+  throw new Error(err);
 }
 
 // ── UK Ticker Detection ──
@@ -957,7 +976,12 @@ export async function normalizeBatchPricesToGBP(
     } else if (currency === 'GBX' || currency === 'GBp') {
       normalized[ticker] = price / 100;
     } else {
-      normalized[ticker] = price * (fxRates.get(currency) ?? 1);
+      const rate = fxRates.get(currency);
+      if (rate === undefined) {
+        console.error(`[FX] No rate available for ${currency}→GBP, skipping ticker ${ticker}`);
+        continue;
+      }
+      normalized[ticker] = price * rate;
     }
   }
 

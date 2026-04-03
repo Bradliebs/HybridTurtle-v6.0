@@ -492,11 +492,34 @@ export default function PositionsTable({ positions, onUpdateStop, onExitPosition
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ positionId: pos.id }),
                                 });
-                                setResetResult({ id: pos.id, message: data.message, success: true });
+                                setResetResult({ id: pos.id, message: data.message, success: data.success !== false });
                                 setTimeout(() => setResetResult(null), 8000);
                               } catch (err) {
-                                setResetResult({ id: pos.id, message: (err as Error).message || 'Reset failed', success: false });
-                                setTimeout(() => setResetResult(null), 8000);
+                                const apiErr = err as { status?: number; message?: string };
+                                // 409 = protection demotion warning — offer force confirmation
+                                if (apiErr.status === 409) {
+                                  const msg = apiErr.message || 'Protection level above INITIAL — reset will demote.';
+                                  if (confirm(`⚠️ ${msg}\n\nProceed with forced reset?`)) {
+                                    try {
+                                      const data = await apiRequest<{ success: boolean; message: string }>('/api/positions/reset-from-t212?force=true', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ positionId: pos.id }),
+                                      });
+                                      setResetResult({ id: pos.id, message: data.message, success: true });
+                                      setTimeout(() => setResetResult(null), 8000);
+                                    } catch (retryErr) {
+                                      setResetResult({ id: pos.id, message: (retryErr as Error).message || 'Forced reset failed', success: false });
+                                      setTimeout(() => setResetResult(null), 8000);
+                                    }
+                                  } else {
+                                    setResetResult({ id: pos.id, message: 'Reset cancelled — protection level preserved', success: false });
+                                    setTimeout(() => setResetResult(null), 5000);
+                                  }
+                                } else {
+                                  setResetResult({ id: pos.id, message: (err as Error).message || 'Reset failed', success: false });
+                                  setTimeout(() => setResetResult(null), 8000);
+                                }
                               }
                               setResettingId(null);
                             }}

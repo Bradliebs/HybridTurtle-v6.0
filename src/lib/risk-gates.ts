@@ -3,7 +3,7 @@
  * Consumed by: scan-engine.ts, nightly.ts, /api/positions/route.ts, /api/risk/route.ts, /api/nightly/route.ts, /api/modules/route.ts
  * Consumes: @/types, position-sizer.ts
  * Risk-sensitive: YES
- * Last modified: 2026-03-01
+ * Last modified: 2026-07-15
  * Notes: All 6 gates must pass. Never short-circuit, bypass, or add a soft override.
  */
 // ============================================================
@@ -34,6 +34,7 @@ export interface RiskGateResult {
   message: string;
   current: number;
   limit: number;
+  warning?: boolean;
 }
 
 /**
@@ -120,8 +121,9 @@ export function validateRiskGates(
     console.warn(`[RiskGates] Cluster not assigned for ${newPosition.sleeve} position — concentration gate skipped`);
     results.push({
       passed: true,
+      warning: true,
       gate: 'Cluster Concentration',
-      message: 'No cluster assigned — gate N/A',
+      message: 'No cluster assigned — gate passed with warning',
       current: 0,
       limit: caps.clusterCap * 100,
     });
@@ -145,8 +147,9 @@ export function validateRiskGates(
     console.warn(`[RiskGates] Sector not assigned for ${newPosition.sleeve} position — concentration gate skipped`);
     results.push({
       passed: true,
+      warning: true,
       gate: 'Sector Concentration',
-      message: 'No sector assigned — gate N/A',
+      message: 'No sector assigned — gate passed with warning',
       current: 0,
       limit: caps.sectorCap * 100,
     });

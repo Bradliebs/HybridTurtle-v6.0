@@ -91,7 +91,7 @@ npm run validate:universe  # validate universe data
 - **Path alias:** `@/*` maps to `src/*` — use it in app/component imports
 - **Env config:** All environment variables validated via Zod in `packages/config/src/env.ts`. Add new vars there.
 - **DEPENDENCY headers:** Most files in `src/lib/` and `packages/` start with a JSDoc block listing consumers, dependencies, risk-sensitivity, and last-modified date. Preserve and update these headers when editing files.
-- **Prisma schema:** SQLite provider. 40 tables (24 core + 16 prediction engine). All migrations are additive — never drop columns in production.
+- **Prisma schema:** SQLite provider. 69 tables. All migrations are additive — never drop columns in production.
 - **Risk-sensitive code:** Any code touching position sizing, stop management, or order execution must be flagged `Risk-sensitive: YES` in its header.
 - **Floor-down rule:** Share quantities are always `Math.floor()`. Never round up. This applies in both `src/lib/position-sizer.ts` and `packages/risk/src/sizing.ts`.
 - **Nullable novel signals:** Prediction engine fields are nullable (`Float?`). The system must work identically when they're all null.

@@ -119,10 +119,15 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Launch auto-stop scheduler in a separate minimised window
+echo  Starting auto-stop scheduler (background)...
+start "HybridTurtle AutoStop" /min cmd /c "cd /d "%~dp0" && npx tsx scripts/start-auto-stop-scheduler.ts 2>&1 >> auto-stop.log"
+
 echo  Starting dashboard server...
 echo.
 echo  ───────────────────────────────────────────────────────────
 echo   Dashboard will open at: http://localhost:3000
+echo   Auto-stop scheduler running in background window.
 echo.
 echo   Keep this window open while using the dashboard.
 echo   Press Ctrl+C or close this window to stop.

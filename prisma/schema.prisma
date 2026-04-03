@@ -290,6 +290,7 @@ model TradeLog {
   user               User      @relation(fields: [userId], references: [id])
 
   @@index([userId, tradeDate(sort: Desc)])
+  @@index([userId])
   @@index([positionId])
   @@index([ticker])
   @@index([decision])
@@ -1143,6 +1144,7 @@ model DailyBar {
 
   @@unique([instrumentId, date, source])
   @@index([date])
+  @@index([instrumentId])
 }
 
 model DataRefreshRun {
@@ -1191,6 +1193,8 @@ model DataRefreshResult {
   @@index([symbol])
   @@index([status])
   @@index([createdAt])
+  @@index([dataRefreshRunId])
+  @@index([instrumentId])
 }
 
 model PortfolioSnapshot {
@@ -1211,6 +1215,7 @@ model PortfolioSnapshot {
   brokerSyncRun    BrokerSyncRun? @relation(fields: [brokerSyncRunId], references: [id], onDelete: SetNull)
 
   @@index([snapshotAt])
+  @@index([brokerSyncRunId])
 }
 
 model BrokerPosition {
@@ -1237,6 +1242,7 @@ model BrokerPosition {
   @@index([symbol])
   @@index([updatedAt])
   @@index([accountType, isOpen])
+  @@index([instrumentId])
 }
 
 model BrokerOrder {
@@ -1265,6 +1271,8 @@ model BrokerOrder {
 
   @@index([symbol])
   @@index([status])
+  @@index([instrumentId])
+  @@index([plannedTradeId])
 }
 
 model PlannedTrade {
@@ -1292,6 +1300,7 @@ model PlannedTrade {
   @@index([symbol])
   @@index([status])
   @@index([executionSessionDate])
+  @@index([instrumentId])
 }
 
 model ProtectiveStop {
@@ -1352,6 +1361,7 @@ model SignalCandidate {
 
   @@index([signalRunId])
   @@index([symbol])
+  @@index([instrumentId])
 }
 
 model RiskSnapshot {
@@ -1443,6 +1453,7 @@ model EveningWorkflowStepRun {
   eveningWorkflowRun   EveningWorkflowRun @relation(fields: [eveningWorkflowRunId], references: [id], onDelete: Cascade)
 
   @@index([eveningWorkflowRunId, stepKey])
+  @@index([eveningWorkflowRunId])
   @@index([startedAt])
   @@index([status])
 }
