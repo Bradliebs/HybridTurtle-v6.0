@@ -38,3 +38,12 @@
 - **Changes:** 4 edits total: cooldown 3-day references (3 occurrences), FWS weight 10 with OVERLAP-02 note.
 - **Confirmation:** Brad confirmed cooldown reduction to 3 days was intentional design decision.
 - **Impact:** Documentation now reflects actual behavior.
+
+### 2026-04-02 — getFXRate Fail-Closed Fix (market-data.ts)
+- **Bug:** `getFXRate()` returned `1.0` for unknown currency pairs via `?? 1` fallback — catastrophic mis-sizing risk (up to 200× for JPY).
+- **Fix:** Option C — expanded fallback table (6→14 pairs covering all 8 universe currencies) + throw on unknown pairs instead of returning 1.0.
+- **Also fixed:** `normalizeBatchPricesToGBP` had secondary `?? 1` fallback — now skips tickers with missing rates.
+- **Caller safety verified:** scan-engine.ts (sacred) handles via Promise.allSettled + per-stock try/catch — skips ticker, scan continues. All other callers have adequate error handling.
+- **Sacred files untouched:** position-sizer.ts and scan-engine.ts not modified.
+- **Universe currencies:** USD, GBP, EUR, CHF, DKK, SEK, AUD, CNY (8 total, from Planning/region_map.csv).
+- **Tests:** 974 passed, 1 pre-existing failure (breakout-failure-detector, unrelated).

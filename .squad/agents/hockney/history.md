@@ -65,24 +65,31 @@
 
 **Pre-existing failure:** `breakout-failure-detector.test.ts` has 1 date-sensitive test failing (day-boundary issue). Not related to scan-engine.
 
-### 2026-04-02 — scan-engine.test.ts Created (ATR Spike Detection)
+### 2026-04-02 — FX Rate Tests Created (market-data + position-sizer)
 
-**File:** `src/lib/scan-engine.test.ts` — 20 tests, all passing.
+**Files:** `src/lib/market-data.test.ts` (new, 11 tests), `src/lib/position-sizer.test.ts` (4 added, 8 total)
 
-**Scope:** ATR spike detection behavior only (first test file for this sacred file).
+**Context:** Fenster fixed `getFXRate()` to throw on unknown pairs instead of returning 1.0. Tests guard the fix.
 
-**What's tested:**
-- Median ATR spike calculation (medianAtr14 × 1.3 threshold, boundary, fallback to atrSpiking)
-- Spike action + status demotion (READY→WATCH, WATCH stays, FAR stays, no-spike passthrough)
-- DI direction independence (bullish/bearish DI, high/low/boundary ADX — all produce SOFT_CAP)
-- HARD_BLOCK never produced (6 parameterized cases ensure no input combination yields HARD_BLOCK)
+**What's tested (market-data.test.ts):**
+- Same-currency identity (GBP→GBP, USD→USD returns 1)
+- Known fallback pairs return correct rates when Yahoo fails (USDGBP=0.79, EURGBP=0.86, CHFGBP=0.89, GBPUSD=1.27)
+- Unknown pairs (XYZ→GBP, BRL→GBP) throw — NEVER return 1.0
+- All 7 foreign→GBP fallbacks verified ≠ 1.0 (regression guard)
+- Live Yahoo rate returned when available
+- Source code audit: `getFXRate` body contains no `?? 1` fallback
 
-**Mock pattern for runFullScan:**
-- 10 `vi.mock()` declarations needed: prisma, market-data, adaptive-atr-buffer, position-sizer, risk-gates, scan-guards, data-validator, earnings-calendar, hurst
-- Single-ticker universe via `prisma.stock.findMany` mock
-- `calculateAdaptiveBuffer` mock controls entry trigger → controls READY/WATCH/FAR classification
-- `evaluateEarningsRisk` returns benign `action: null` to avoid interfering with status
+**What's tested (position-sizer.test.ts FX additions):**
+- fxToGbp affects share count (lower FX = more shares)
+- totalCost correctly denominated in GBP via fxToGbp
+- fxToGbp=0 throws (unavailable rate guard)
+- Negative fxToGbp throws
 
-**Key architecture note:** ATR spike detection runs regardless of `passesAllFilters` — it sits between Stage 3 (classification) and the earnings check, before the `passesAllFilters && status !== 'FAR'` gate.
-
-**Pre-existing failure:** `breakout-failure-detector.test.ts` has 1 date-sensitive test failing (day-boundary issue). Not related to scan-engine.
+**Mocking pattern for market-data.ts:**
+- Mock `yahoo-finance2` with class constructor (v3 API requires `new YahooFinance()`)
+- Export `__mockQuote` from mock for test access
+- Mock `fetch-retry` `withRetry` as passthrough: `vi.fn(async (fn) => fn())`
+- Mock 5 sibling imports: regime-detector, market-data-eodhd, breakout-integrity, cache-persistence, cache-keys
+- `server-only` handled by vitest alias (vitest.config.ts)
+- FX cache survives between tests within same describe; use `forceRefresh: true` to bypass
+- **Result:** 990 tests pass (up from 974, +16 tests).

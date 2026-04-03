@@ -44,6 +44,14 @@
 - **Status:** PARTIAL (scan-engine ATR spike tests complete; full pipeline and position-sizer expansion pending)
 - **Completed:** scan-engine.test.ts created with 20 tests covering ATR spike detection (2026-04-02)
 
+#### D6: getFXRate Fail-Closed Fix
+- **Issue:** `getFXRate()` returned `1.0` for unknown currency pairs on API failure; fallback table only covered 6 pairs
+- **Action:** Expand fallback 6→14 pairs, fail-closed on unknowns (throw instead of 1.0), patch normalizeBatchPricesToGBP
+- **Priority:** CRITICAL
+- **Owner:** Fenster & Hockney
+- **Status:** RESOLVED (2026-04-02T23:11:45Z)
+- **Decision:** Fail-closed approach selected. All 8 universe currencies + inverses in fallback. Callers validated for graceful error handling. No sacred files modified. 11 market-data.test.ts + 4 position-sizer tests added.
+
 ## Resolved Decisions (Archive)
 
 ### 2026-04-02 — Approved User Directives
