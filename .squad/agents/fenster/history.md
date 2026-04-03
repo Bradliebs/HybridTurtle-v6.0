@@ -47,3 +47,15 @@
 - **Sacred files untouched:** position-sizer.ts and scan-engine.ts not modified.
 - **Universe currencies:** USD, GBP, EUR, CHF, DKK, SEK, AUD, CNY (8 total, from Planning/region_map.csv).
 - **Tests:** 974 passed, 1 pre-existing failure (breakout-failure-detector, unrelated).
+
+### 2026-04-03 — Backtest Debug & Build Fixes (tsconfig, pairs, PEAD modules)
+- **Problem:** 4 build-breaking type errors preventing backtest execution and full build completion.
+- **Root cause:** Type incompatibilities in tsconfig module resolution and PEAD/pairs analytics modules.
+- **Files fixed:**
+  1. **tsconfig.json** — Corrected module resolution compiler options
+  2. **src/lib/pairs/pairs-analytics.ts** — Fixed type annotations in analytics logic
+  3. **src/lib/pairs/pairs-scanner.ts** — Corrected type signatures in scanner module
+  4. **src/lib/pead/pead-analytics.ts** — Fixed PEAD analytics type errors
+- **Outcome:** Build now succeeds (52 pages). Backtest API verified working (200 response, 35 signals returned).
+- **Tests:** All 1025 tests pass. No regressions.
+- **Duration:** ~45 minutes (79 tool calls) — methodical TypeScript debugging and verification.
