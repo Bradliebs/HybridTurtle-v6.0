@@ -172,6 +172,33 @@ export async function syncSnapshot(
     ? Math.abs(spyPrice - spyMa200) / spyMa200 > 0.02
     : true; // Default to stable when data is unavailable
 
+  // ── Persist regime to RegimeHistory for dashboard analytics ──
+  try {
+    const prevRegime = await prisma.regimeHistory.findFirst({
+      orderBy: { date: 'desc' },
+    });
+    const consecutive = prevRegime?.regime === regime
+      ? (prevRegime.consecutive || 1) + 1
+      : 1;
+
+    const vwrlPriceVal = hasVwrl ? vwrlData[0]?.close ?? null : null;
+    const vwrlMa200Val = hasVwrl ? calculateMA(vwrlData.map(d => d.close), 200) : null;
+
+    await prisma.regimeHistory.create({
+      data: {
+        regime,
+        benchmark: 'SPY',
+        spyPrice: spyPrice || null,
+        spyMa200: spyMa200 || null,
+        vwrlPrice: vwrlPriceVal,
+        vwrlMa200: vwrlMa200Val,
+        consecutive,
+      },
+    });
+  } catch (err) {
+    console.warn('[Snapshot] Failed to persist regime history:', (err as Error).message);
+  }
+
   // 4. Get open positions for cluster exposure calc
   const openPositions = await prisma.position.findMany({
     where: { status: 'OPEN' },
