@@ -1,9 +1,9 @@
 /**
  * DEPENDENCIES
  * Consumed by: /api/nightly
- * Consumes: health-check.ts, stop-manager.ts, telegram.ts, market-data.ts, equity-snapshot.ts, snapshot-sync.ts, laggard-detector.ts, breakout-failure-detector.ts, alert-service.ts, modules/*, risk-gates.ts, position-sizer.ts, prisma.ts, @/types
+ * Consumes: health-check.ts, stop-manager.ts, telegram.ts, market-data.ts, equity-snapshot.ts, snapshot-sync.ts, laggard-detector.ts, breakout-failure-detector.ts, alert-service.ts, modules/*, risk-gates.ts, position-sizer.ts, correlation-matrix.ts, score-tracker.ts, dual-score.ts, prisma.ts, @/types
  * Risk-sensitive: YES
- * Last modified: 2026-03-01
+ * Last modified: 2026-04-03
  * Notes: API nightly should continue on partial failures.
  */
 export const dynamic = 'force-dynamic';
@@ -33,6 +33,9 @@ import { calculateRMultiple } from '@/lib/position-sizer';
 import { RISK_PROFILES, type RiskProfileType, type Sleeve } from '@/types';
 import { z } from 'zod';
 import { apiError } from '@/lib/api-response';
+import { computeCorrelationMatrix } from '@/lib/correlation-matrix';
+import { saveScoreBreakdowns } from '@/lib/score-tracker';
+import { scoreRow, normaliseRow } from '@/lib/dual-score';
 
 const nightlyBodySchema = z.object({
   userId: z.string().trim().min(1).optional(),
@@ -496,6 +499,23 @@ export async function POST(request: NextRequest) {
 
     // Module 13: Momentum Expansion — DISABLED (feature-flagged, awaiting backtest validation)
 
+    // Correlation matrix (isolated — advisory only, no hard blocks)
+    let correlationPairCount = 0;
+    try {
+      const corrResult = await computeCorrelationMatrix();
+      correlationPairCount = corrResult.pairs.length;
+      if (corrResult.pairs.length > 0) {
+        alerts.push(`${corrResult.pairs.length} HIGH_CORR pair(s) detected (r > 0.75)`);
+      }
+      if (corrResult.tickersFailed.length > 0) {
+        console.warn(`[Nightly] Correlation: ${corrResult.tickersFailed.length} tickers failed data fetch`);
+      }
+      console.log(`[Nightly] Correlation: ${corrResult.pairs.length} HIGH_CORR pairs from ${corrResult.tickersProcessed} tickers`);
+    } catch (error) {
+      // Non-critical — log and continue
+      console.warn('[Nightly] Correlation matrix failed:', (error as Error).message);
+    }
+
     // Step 5: Record equity snapshot with open risk percent
     let openRiskPercent = 0;
     try {
@@ -708,6 +728,47 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Step 7c: Score Breakdown — record BQS/FWS/NCS component decomposition for analytics
+    if (snapshotSync.snapshotId && snapshotSync.synced) {
+      try {
+        const allSnapshotRows = await prisma.snapshotTicker.findMany({
+          where: { snapshotId: snapshotSync.snapshotId },
+        });
+        const scoredTickers = allSnapshotRows.map((st) => {
+          const row = normaliseRow({
+            ticker: st.ticker, name: st.name || st.ticker, sleeve: st.sleeve || 'CORE',
+            status: st.status || 'FAR', close: st.close, atr_14: st.atr14,
+            atr_pct: st.atrPct, adx_14: st.adx14, plus_di: st.plusDi,
+            minus_di: st.minusDi, vol_ratio: st.volRatio,
+            market_regime: st.marketRegime, market_regime_stable: st.marketRegimeStable,
+            distance_to_20d_high_pct: st.distanceTo20dHighPct,
+            entry_trigger: st.entryTrigger, stop_level: st.stopLevel,
+            chasing_20_last5: st.chasing20Last5, chasing_55_last5: st.chasing55Last5,
+            atr_spiking: st.atrSpiking, atr_collapsing: st.atrCollapsing,
+            rs_vs_benchmark_pct: st.rsVsBenchmarkPct,
+            days_to_earnings: st.daysToEarnings, earnings_in_next_5d: st.earningsInNext5d,
+            cluster_name: st.clusterName, super_cluster_name: st.superClusterName,
+            cluster_exposure_pct: st.clusterExposurePct,
+            super_cluster_exposure_pct: st.superClusterExposurePct,
+            max_cluster_pct: st.maxClusterPct, max_super_cluster_pct: st.maxSuperClusterPct,
+            weekly_adx: st.weeklyAdx, vol_regime: st.volRegime,
+            dual_regime_aligned: st.dualRegimeAligned, bis_score: st.bisScore,
+            currency: st.currency,
+          });
+          return scoreRow(row);
+        });
+        const sbResult = await saveScoreBreakdowns(
+          scoredTickers,
+          snapshotSync.snapshotId,
+          allSnapshotRows[0]?.marketRegime || 'NEUTRAL'
+        );
+        console.log(`[Nightly] ScoreBreakdown: ${sbResult.saved} saved, ${sbResult.errors} errors`);
+      } catch (sbError) {
+        console.warn('[Nightly] ScoreBreakdown save failed:', (sbError as Error).message);
+        // Non-fatal — analytics data loss, not pipeline failure
+      }
+    }
+
     // Step 8: Send Telegram summary
     try {
       await sendNightlySummary({
@@ -760,6 +821,7 @@ export async function POST(request: NextRequest) {
           trailingStopsApplied: trailingStopChanges.length,
           alertsCount: alerts.length,
           snapshotSync,
+          correlationPairCount,
           hadFailure,
           // Data source fallback chain health
           dataSource: {
@@ -788,6 +850,7 @@ export async function POST(request: NextRequest) {
       alerts,
       summary: {
         snapshotSync: { tickerCount: snapshotSync.rowCount, failed: snapshotSync.failed.length },
+        correlationPairs: correlationPairCount,
       },
       timestamp: new Date(),
     });
