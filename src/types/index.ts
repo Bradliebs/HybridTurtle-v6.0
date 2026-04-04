@@ -539,6 +539,7 @@ export const MAIN_NAV_ITEMS: NavEntry[] = [
   {
     label: 'Performance',
     children: [
+      { label: 'Performance', href: '/performance' },
       { label: 'Execution Quality', href: '/execution-quality' },
       { label: 'Exec Audit', href: '/execution-audit' },
     ],
