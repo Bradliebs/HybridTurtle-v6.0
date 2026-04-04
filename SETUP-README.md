@@ -31,17 +31,21 @@ A systematic trading dashboard built on the Turtle Trading methodology with mode
 
 | File | Purpose |
 |------|---------|
-| `install.bat` | One-time setup — installs Node.js deps, database, desktop shortcut |
+| `install.bat` | One-time setup — installs Node.js deps, database, desktop shortcut, scheduled tasks |
 | `start.bat` | Daily launcher — starts the server and opens your browser |
 | `run-dashboard.bat` | Compatibility alias — redirects to `start.bat` |
 | `update.bat` | Run after getting new code — updates deps and database |
 | `package.bat` | Package the app into a distributable zip |
-| `nightly-task.bat` | Run nightly automation checks (schedulable via Task Scheduler) |
+| `nightly-task.bat` | Run nightly automation (Mon-Fri 21:30) |
 | `watchdog-task.bat` | Check for missed nightly heartbeats, send Telegram alert |
 | `midday-sync-task.bat` | Lightweight intra-day T212 position sync |
+| `intraday-alert-task.bat` | Intraday trigger check + auto-stop ratchet (Mon-Fri 15:30) |
+| `auto-stop-task.bat` | Auto-stop ratchet scheduler (starts at logon) |
 | `register-nightly-task.bat` | Register nightly as a Windows Scheduled Task |
 | `register-watchdog-task.bat` | Register watchdog as a Windows Scheduled Task (10:00 AM daily) |
 | `register-midday-sync.bat` | Register midday sync as a Windows Scheduled Task |
+| `register-intraday-alert.bat` | Register intraday alert as a Windows Scheduled Task |
+| `register-auto-stop-task.bat` | Register auto-stop as a Windows Scheduled Task |
 | `fix-account-types.bat` | Fix ISA vs Invest account type mismatches |
 | `restore-backup.bat` | Restore database from a backup (emergency use) |
 

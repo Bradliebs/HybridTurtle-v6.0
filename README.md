@@ -70,7 +70,7 @@ Current constraint: the checked-in Prisma schema is still SQLite-backed, so the 
 
 | File | Purpose |
 |------|---------|
-| `install.bat` | First-time setup (deps, database, desktop shortcut) |
+| `install.bat` | First-time setup (deps, database, desktop shortcut, scheduled tasks) |
 | `start.bat` | Primary daily launcher |
 | `run-dashboard.bat` | Compatibility alias (redirects to `start.bat`) |
 | `nightly.bat` | Compatibility alias (redirects to `nightly-task.bat`) |
@@ -83,6 +83,10 @@ Current constraint: the checked-in Prisma schema is still SQLite-backed, so the 
 | `register-watchdog-task.bat` | Register watchdog as a Windows Task Scheduler entry (10:00 AM daily) |
 | `midday-sync-task.bat` | Lightweight intra-day T212 position sync (stop-out detection) |
 | `register-midday-sync.bat` | Register midday sync as a Windows Task Scheduler entry |
+| `intraday-alert-task.bat` | Intraday trigger check + auto-stop ratchet (Mon-Fri 15:30) |
+| `register-intraday-alert.bat` | Register intraday alert as a Windows Task Scheduler entry |
+| `auto-stop-task.bat` | Auto-stop ratchet scheduler (long-running, starts at logon) |
+| `register-auto-stop-task.bat` | Register auto-stop scheduler as a Windows Task Scheduler entry |
 | `fix-account-types.bat` | Fix ISA vs Invest account type mismatches on positions |
 | `restore-backup.bat` | Restore database from a backup (emergency use) |
 

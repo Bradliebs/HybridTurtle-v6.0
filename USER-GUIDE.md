@@ -31,8 +31,9 @@ HybridTurtle is a trading dashboard that helps you:
 1. Double-click `install.bat`
 2. If Node.js is missing/unsupported, install Node.js 20 or 22 LTS and run `install.bat` again
 3. Wait while installer sets up dependencies and database
-4. Optional: choose whether to set up nightly Telegram task
-5. When complete, use desktop shortcut or `start.bat`
+4. Optional: set up Telegram notifications (sends alerts to your phone)
+5. The installer automatically registers 5 scheduled tasks (see Section 10)
+6. When complete, use desktop shortcut or `start.bat`
 
 ### Launcher Files
 
@@ -271,14 +272,23 @@ Use this if you want nightly signal/summary messages in Telegram.
 
 ---
 
-## 10) Nightly Automation (Optional)
+## 10) Scheduled Tasks (Automatic)
 
-If enabled in installer:
-- runs on weeknights (scheduled task)
-- executes health checks and stop-related automation
-- can send Telegram summary (if token/chat ID are configured)
+The installer registers 5 scheduled tasks in Windows Task Scheduler. These run automatically — no manual action needed after setup.
 
-If PC is off at schedule time, task may run late when machine resumes (depending on task scheduler behavior).
+| Task | Schedule | What It Does |
+|------|----------|------|
+| **Nightly pipeline** | Mon-Fri 21:30 | Full health check, stop updates, Telegram summary |
+| **Intraday alert** | Mon-Fri 15:30 | Checks live prices vs signal triggers, auto-applies stop ratchets, sends Telegram alert |
+| **Midday sync** | Mon-Fri 10:00, 13:00, 16:00, 19:00 | Syncs positions with Trading 212 to detect stop-outs |
+| **Auto-stop ratchet** | Starts when you log in | Checks hourly for stop upgrades and pushes to Trading 212 |
+| **Watchdog** | Daily 10:00 AM | Alerts you via Telegram if the nightly pipeline didn’t run |
+
+If your PC is off at the scheduled time, the task runs when your PC next wakes up (Task Scheduler “run when available”).
+
+Telegram notifications require a bot token and chat ID — configure in the installer or later in the Settings page.
+
+To re-register tasks manually, run the `register-*.bat` files as Administrator.
 
 ---
 

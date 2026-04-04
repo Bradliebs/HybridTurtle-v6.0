@@ -18,6 +18,13 @@ color 0A
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
+:: ── If called with --register-tasks-only, jump straight to task registration ──
+if "%~1"=="--register-tasks-only" (
+    set "LOG=%~dp0install.log"
+    set "SCRIPT_DIR=%~dp0"
+    goto :do_register_tasks
+)
+
 :: ── Install log ──
 set "LOG=%~dp0install.log"
 >> "%LOG%" echo.
@@ -37,7 +44,7 @@ echo  ===========================================================
 echo.
 
 :: ── Step 1: Check for Node.js ──
-echo  [1/7] Checking for Node.js...
+echo  [1/8] Checking for Node.js...
 where node >nul 2>&1
 if !errorlevel! neq 0 (
     echo.
@@ -88,7 +95,7 @@ if !errorlevel! neq 0 (
 >> "%LOG%" echo [%date% %time%] Architecture: %NODE_ARCH% OK
 
 :: ── Step 2: Check npm & PowerShell ──
-echo  [2/7] Checking npm...
+echo  [2/8] Checking npm...
 where npm >nul 2>&1
 if !errorlevel! neq 0 (
     echo  !! npm not found. It should come with Node.js.
@@ -113,7 +120,7 @@ if !errorlevel! neq 0 (
 >> "%LOG%" echo [%date% %time%] PowerShell OK
 
 :: ── Step 3: Create .env if missing ──
-echo  [3/7] Setting up environment...
+echo  [3/8] Setting up environment...
 if exist ".env" (
     echo         .env already exists - keeping existing config
     >> "%LOG%" echo [%date% %time%] .env already exists - skipped
@@ -138,7 +145,7 @@ echo         Created .env with SQLite database
 :env_done
 
 :: ── Step 4: Install dependencies ──
-echo  [4/7] Installing dependencies (this may take 2-5 minutes)...
+echo  [4/8] Installing dependencies (this may take 2-5 minutes)...
 echo.
 :: Use npm ci for reproducible installs when lockfile exists; fall back to npm install
 if exist "package-lock.json" (
@@ -162,7 +169,7 @@ if !errorlevel! neq 0 (
 
 :: ── Step 5: Setup database ──
 echo.
-echo  [5/7] Setting up database...
+echo  [5/8] Setting up database...
 call npx prisma generate >> "%LOG%" 2>&1
 if !errorlevel! neq 0 (
     echo  !! Prisma generate failed. See install.log for details.
@@ -205,7 +212,7 @@ echo         Build OK
 >> "%LOG%" echo [%date% %time%] Build verification OK
 
 :: ── Step 6: Create desktop shortcut ──
-echo  [6/7] Creating desktop shortcut...
+echo  [6/8] Creating desktop shortcut...
 set "SCRIPT_DIR=%~dp0"
 set "SHORTCUT_NAME=HybridTurtle Dashboard"
 
@@ -218,41 +225,37 @@ if !errorlevel! equ 0 (
     echo         Could not create shortcut. No problem - you can run start.bat manually.
 )
 
-:: ── Step 7: Optional — Nightly Telegram Scheduled Task ──
+:: ── Step 7: Optional — Telegram Notifications ──
 echo.
-echo  [7/7] Nightly Telegram Notifications (optional)
+echo  [7/8] Telegram Notifications (optional)
 echo.
-echo   This sets up a Windows Scheduled Task that runs every
-echo   weeknight at 21:10 to send a Telegram summary of your
-echo   portfolio - stops, risk gates, laggards, module alerts.
+echo   HybridTurtle can send you a daily summary on your phone
+echo   via Telegram. You'll get stop updates, trigger alerts,
+echo   and portfolio health every evening.
 echo.
-echo   Requirements:
-echo     - A Telegram bot token (from @BotFather)
-echo     - Your Telegram chat ID (from @userinfobot)
-echo     - PC must be on at 21:10 (runs late if missed)
+echo   If you don't have Telegram set up yet, just press Enter
+echo   to skip — you can configure it later in the Settings page.
 echo.
-set /p SETUP_TELEGRAM="  Set up the nightly Telegram task? (Y/N): "
+set /p SETUP_TELEGRAM="  Set up Telegram notifications? (Y/N or Enter to skip): "
 if /i not "%SETUP_TELEGRAM%"=="Y" if /i not "%SETUP_TELEGRAM%"=="N" (
-    echo         Input not recognized, defaulting to N.
     set "SETUP_TELEGRAM=N"
 )
 if /i not "%SETUP_TELEGRAM%"=="Y" (
-    echo         Skipped - you can set this up later by running:
-    echo         install.bat or manually in Task Scheduler.
+    echo         Skipped — configure anytime in Settings.
     goto :skip_tg_setup
 )
 
 echo.
-echo   --- Telegram Credentials ---
+echo   --- How to get your Telegram credentials ---
 echo.
-echo   To get your bot token:
-echo     1. Open Telegram and message @BotFather
-echo     2. Send /newbot and follow the prompts
-echo     3. Copy the token it gives you
+echo   Step 1: Get your Bot Token
+echo     - Open Telegram on your phone
+echo     - Search for @BotFather and send /newbot
+echo     - Follow the prompts, then copy the token it gives you
 echo.
-echo   To get your chat ID:
-echo     1. Open Telegram and message @userinfobot
-echo     2. It replies with your numeric ID
+echo   Step 2: Get your Chat ID
+echo     - Search for @userinfobot in Telegram
+echo     - It replies with your numeric ID
 echo.
 
 :: Check if credentials already exist in .env
@@ -275,93 +278,167 @@ if defined HAS_TOKEN if defined HAS_CHATID (
 
 call :read_tg_token
 if "!TG_TOKEN!"=="" (
-    echo         No token entered - skipping Telegram setup.
+    echo         No token entered — skipping Telegram setup.
     goto :skip_tg_setup
 )
 
 call :read_tg_chatid
 if "!TG_CHATID!"=="" (
-    echo         No chat ID entered - skipping Telegram setup.
+    echo         No chat ID entered — skipping Telegram setup.
     goto :skip_tg_setup
 )
 
-:: Remove any existing Telegram lines from .env, then append new ones
-:: Credentials are passed via environment variables (not command-line args)
-:: to avoid leaking them in process listings.
+:: Save credentials to .env (via env vars to avoid process listing leaks)
 set "_TG_TOKEN=!TG_TOKEN!"
 set "_TG_CHATID=!TG_CHATID!"
 powershell -NoProfile -Command "$tok = $env:_TG_TOKEN; $cid = $env:_TG_CHATID; $f = Get-Content '.env' | Where-Object { $_ -notmatch '^TELEGRAM_BOT_TOKEN=' -and $_ -notmatch '^TELEGRAM_CHAT_ID=' }; $f += \"TELEGRAM_BOT_TOKEN=$tok\"; $f += \"TELEGRAM_CHAT_ID=$cid\"; Set-Content '.env' $f"
 echo         Telegram credentials saved to .env
 
-:: Send a test message to confirm it works
-:: Token and chat ID are read from env vars, not embedded in args.
+:: Send a test message
 echo.
 echo         Sending test message to your Telegram...
-powershell -NoProfile -Command "$tok = $env:_TG_TOKEN; $cid = $env:_TG_CHATID; $r = Invoke-RestMethod -Uri \"https://api.telegram.org/bot$tok/sendMessage\" -Method Post -ContentType 'application/json' -Body ('{\"chat_id\":\"' + $cid + '\",\"text\":\"HybridTurtle connected! Nightly reports will arrive here at 21:10 Mon-Fri.\"}'); if ($r.ok) { Write-Output '         Test message sent successfully!' } else { Write-Output '         !! Test message failed - check your token and chat ID.' }" 2>nul || echo         !! Could not reach Telegram API - check your internet connection.
+powershell -NoProfile -Command "$tok = $env:_TG_TOKEN; $cid = $env:_TG_CHATID; $r = Invoke-RestMethod -Uri \"https://api.telegram.org/bot$tok/sendMessage\" -Method Post -ContentType 'application/json' -Body ('{\"chat_id\":\"' + $cid + '\",\"text\":\"HybridTurtle connected! You will receive trading alerts here.\"}'); if ($r.ok) { Write-Output '         Test message sent — check your Telegram!' } else { Write-Output '         !! Test message failed — check your token and chat ID.' }" 2>nul || echo         !! Could not reach Telegram API — check your internet connection.
 
 :skip_tg_creds
-echo.
-echo         Registering scheduled task...
+:skip_tg_setup
 
-:: Check for admin privileges (schtasks usually requires elevation)
+:: ── Step 8: Register ALL scheduled tasks ──
+echo.
+echo  [8/8] Setting up scheduled tasks...
+echo.
+echo   These background tasks keep your portfolio monitored
+echo   automatically — no manual work needed once set up.
+echo.
+
+:: Check for admin privileges
 net session >nul 2>&1
 if !errorlevel! neq 0 (
+    echo         Requesting administrator privileges for task registration...
+    echo         (A Windows prompt will appear — click Yes)
     echo.
-    echo  !! Creating a scheduled task requires Administrator privileges.
-    echo  !! Please re-run install.bat as Administrator to set up the nightly task.
-    echo  !! ^(Right-click install.bat ^> Run as administrator^)
-    echo  !! Everything else is installed — only the scheduled task was skipped.
-    >> "%LOG%" echo [%date% %time%] WARN: Skipped schtasks - no admin
-    goto :skip_tg_setup
+    >> "%LOG%" echo [%date% %time%] Elevating for scheduled task registration
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath '%~f0' -ArgumentList '--register-tasks-only' -Verb RunAs -Wait"
+    goto :post_task_check
 )
+:do_register_tasks
 
-:: Only create nightly-task.bat if it does not already exist
-if not exist "%~dp0nightly-task.bat" (
-    call :create_nightly_bat
-    if !errorlevel! neq 0 (
-        echo  !! Failed to create nightly-task.bat. See install.log.
-        >> "%LOG%" echo [%date% %time%] FAIL: create nightly-task.bat
-        goto :fail
-    )
-) else (
-    echo         nightly-task.bat already exists - keeping existing version
-)
+set "TASKS_OK=0"
+set "TASKS_FAIL=0"
 
-:: Create/replace scheduled task using schtasks (more robust across machines)
-set "TASK_NAME=HybridTurtle-Nightly"
-set "NIGHTLY_BAT=%SCRIPT_DIR%nightly-task.bat"
-schtasks /Delete /TN "%TASK_NAME%" /F >> "%LOG%" 2>&1
-schtasks /Create /TN "%TASK_NAME%" /SC WEEKLY /D MON,TUE,WED,THU,FRI /ST 21:10 /TR "\"%NIGHTLY_BAT%\"" /RL LIMITED /F >> "%LOG%" 2>&1
-
+:: Task 1: Nightly Pipeline (Mon-Fri 21:30)
+echo         Nightly pipeline (Mon-Fri 21:30)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0register-nightly-task.ps1" -FromBat >> "%LOG%" 2>&1
 if !errorlevel! equ 0 (
-    echo         Scheduled task 'HybridTurtle-Nightly' created!
-    echo         Runs Mon-Fri at 21:10. View/edit in Task Scheduler.
-    >> "%LOG%" echo [%date% %time%] Scheduled task created
+    echo           OK
+    set /a TASKS_OK+=1
 ) else (
-    echo         !! Could not create scheduled task.
-    echo         !! Try running this installer as Administrator.
-    >> "%LOG%" echo [%date% %time%] FAIL: schtasks create
+    echo           FAILED — see install.log
+    set /a TASKS_FAIL+=1
 )
 
-:skip_tg_setup
+:: Task 2: Intraday Alert (Mon-Fri 15:30)
+echo         Intraday alert (Mon-Fri 15:30)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0register-intraday-alert.ps1" -FromBat >> "%LOG%" 2>&1
+if !errorlevel! equ 0 (
+    echo           OK
+    set /a TASKS_OK+=1
+) else (
+    echo           FAILED — see install.log
+    set /a TASKS_FAIL+=1
+)
+
+:: Task 3: Midday Sync (Mon-Fri 10:00, 13:00, 16:00, 19:00)
+echo         Midday sync (Mon-Fri 4x daily)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0register-midday-sync.ps1" -FromBat >> "%LOG%" 2>&1
+if !errorlevel! equ 0 (
+    echo           OK
+    set /a TASKS_OK+=1
+) else (
+    echo           FAILED — see install.log
+    set /a TASKS_FAIL+=1
+)
+
+:: Task 4: Auto-Stop Ratchet (at logon)
+echo         Auto-stop ratchet (starts at logon)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0register-auto-stop-task.ps1" -FromBat >> "%LOG%" 2>&1
+if !errorlevel! equ 0 (
+    echo           OK
+    set /a TASKS_OK+=1
+) else (
+    echo           FAILED — see install.log
+    set /a TASKS_FAIL+=1
+)
+
+:: Task 5: Watchdog (daily 10:00 AM)
+echo         Watchdog monitor (daily 10:00)...
+schtasks /delete /tn "HybridTurtle Watchdog" /f >> "%LOG%" 2>&1
+schtasks /create /tn "HybridTurtle Watchdog" /tr "\"%~dp0watchdog-task.bat\" --scheduled" /sc daily /st 10:00 /rl highest /f >> "%LOG%" 2>&1
+if !errorlevel! equ 0 (
+    echo           OK
+    set /a TASKS_OK+=1
+) else (
+    echo           FAILED — see install.log
+    set /a TASKS_FAIL+=1
+)
+
+echo.
+echo         Tasks registered: !TASKS_OK! of 5
+if !TASKS_FAIL! gtr 0 (
+    echo         !TASKS_FAIL! task^(s^) failed — you can register them later
+    echo         by running the register-*.bat files as Administrator.
+)
+>> "%LOG%" echo [%date% %time%] Scheduled tasks: !TASKS_OK! OK, !TASKS_FAIL! failed
+
+:: If we were called just for task registration, exit now
+if "%~1"=="--register-tasks-only" exit /b 0
+goto :install_done
+
+:post_task_check
+:: Verify tasks were registered by the elevated process
+set "TASKS_REGISTERED=0"
+for /f "tokens=*" %%i in ('schtasks /query /fo list 2^>nul ^| findstr /c:"HybridTurtle"') do set /a TASKS_REGISTERED+=1
+if !TASKS_REGISTERED! gtr 0 (
+    echo.
+    echo         Scheduled tasks registered successfully.
+) else (
+    echo.
+    echo         Could not register tasks — you may need to run
+    echo         the register-*.bat files manually as Administrator.
+)
+>> "%LOG%" echo [%date% %time%] Post-elevation task check: !TASKS_REGISTERED! tasks found
+
+:install_done
 
 :: ── Done! ──
 echo.
 echo  ===========================================================
-echo   INSTALLATION COMPLETE!
+echo   INSTALLATION COMPLETE
 echo  ===========================================================
 echo.
-echo   To launch the dashboard:
-echo     - Double-click "HybridTurtle Dashboard" on your Desktop
-echo     - OR run start.bat in this folder
+echo   What was set up:
 echo.
-echo   The dashboard will open at: http://localhost:3000
-echo.
-echo   First run may take a moment while the app compiles.
+echo     Dashboard ............. ready
+echo     Database .............. ready
+echo     Desktop shortcut ...... ready
 if /i "%SETUP_TELEGRAM%"=="Y" (
-    echo.
-    echo   Telegram: Nightly summary at 21:10 Mon-Fri
+    echo     Telegram alerts ....... configured
+) else (
+    echo     Telegram alerts ....... skipped (set up later in Settings)
 )
+echo     Scheduled tasks ....... registered
+echo.
+echo   Your scheduled tasks:
+echo     Nightly pipeline      Mon-Fri 21:30
+echo     Intraday alert        Mon-Fri 15:30
+echo     Midday sync           Mon-Fri 10:00/13:00/16:00/19:00
+echo     Auto-stop ratchet     starts when you log in
+echo     Watchdog monitor      daily 10:00
+echo.
+echo   To launch the dashboard:
+echo     Double-click "HybridTurtle Dashboard" on your Desktop
+echo.
+echo   The dashboard opens at: http://localhost:3000
+echo   First run may take a moment while the app starts up.
 echo.
 echo   Full install log: install.log
 echo  ===========================================================

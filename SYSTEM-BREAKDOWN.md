@@ -364,9 +364,9 @@ Account creation with password validation.
 
 ---
 
-## 6. Nightly Automation (9-Step Pipeline)
+## 6. Nightly Automation (10-Step Pipeline)
 
-Runs via `nightly-task.bat` / Windows Task Scheduler. Runs unattended.
+Runs via `nightly-task.bat` / Windows Task Scheduler (Mon-Fri 21:30). Runs unattended.
 
 | # | Step | Key Functions | Details |
 |---|------|---------------|---------|

@@ -149,7 +149,18 @@ The nightly cron sends summaries via Telegram including: health status, regime, 
 
 This is where you manage which stocks the system scans and monitors. See Section 3 for full details.
 
-### 2.7 Immutable Rules
+### 2.7 Safety Controls & Auto-Stop Autopilot
+
+**Safety Controls** — Phase 10 kill switches that block scans and submissions without changing sacred trading logic:
+- Disable all submissions (hard stop on every order path)
+- Disable automated submissions only (blocks scripts, allows manual)
+- Disable scans when data is stale
+
+**Auto-Stop Autopilot** — Automatically ratchets stops up every hour. Stops can only move up, never down (monotonic enforcement).
+
+> **Confirmation required:** Changing any safety toggle or the auto-stop switch shows a confirmation prompt before applying. This prevents accidental changes to critical safety controls.
+
+### 2.8 Immutable Rules
 
 Read-only list of 10 rules the system enforces. These cannot be changed:
 
