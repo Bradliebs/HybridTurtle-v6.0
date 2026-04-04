@@ -36,6 +36,10 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     console.error(`[ErrorBoundary${this.props.section ? `: ${this.props.section}` : ''}]`, error, info.componentStack);
   }
 
+  private handleRetry = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -50,6 +54,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
           <p className="mt-1 text-xs opacity-75">
             {this.state.error?.message ?? 'An unexpected error occurred'}
           </p>
+          <button
+            onClick={this.handleRetry}
+            className="mt-2 text-xs font-medium underline hover:no-underline"
+          >
+            Try again
+          </button>
         </div>
       );
     }

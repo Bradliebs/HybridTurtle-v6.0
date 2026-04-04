@@ -36,6 +36,7 @@ export default function AutoStopsPanel() {
   const [toggling, setToggling] = useState(false);
   const [running, setRunning] = useState(false);
   const [lastResult, setLastResult] = useState<AutoCycleResult | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     const fetchStatus = async () => {
@@ -53,6 +54,7 @@ export default function AutoStopsPanel() {
 
   const handleToggle = useCallback(async () => {
     setToggling(true);
+    setShowConfirm(false);
     try {
       const data = await apiRequest<AutoStopStatus & { message: string }>('/api/stops/auto', {
         method: 'PUT',
@@ -116,7 +118,7 @@ export default function AutoStopsPanel() {
             )}
           </div>
           <button
-            onClick={handleToggle}
+            onClick={() => setShowConfirm(true)}
             disabled={toggling}
             title={enabled ? 'Disable auto-stop autopilot' : 'Enable auto-stop autopilot'}
             className={cn(
@@ -131,6 +133,34 @@ export default function AutoStopsPanel() {
             )} />
           </button>
         </div>
+
+        {/* Confirmation banner */}
+        {showConfirm && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-950/40 p-4">
+            <p className="text-sm font-medium text-amber-300">
+              {enabled ? 'Disable auto-stop autopilot?' : 'Enable auto-stop autopilot?'}
+            </p>
+            <p className="mt-1 text-xs text-amber-400/70">
+              {enabled
+                ? 'Stops will no longer be ratcheted automatically. You must manage stops manually.'
+                : 'Stops will be automatically ratcheted up every hour during market hours. Stops can only move up — never down.'}
+            </p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={handleToggle}
+                className="rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
+              >
+                Confirm
+              </button>
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="rounded bg-navy-700 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-navy-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Run Now button */}
         {enabled && (

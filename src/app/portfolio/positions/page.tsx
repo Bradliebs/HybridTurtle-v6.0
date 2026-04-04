@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Navbar from '@/components/shared/Navbar';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import KPIBanner from '@/components/portfolio/KPIBanner';
 import PositionsTable from '@/components/portfolio/PositionsTable';
 import T212SyncPanel from '@/components/portfolio/T212SyncPanel';
@@ -319,18 +320,22 @@ function PositionsPageInner() {
       {/* Distribution tab */}
       {activeTab === 'distribution' && (
         <main className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 space-y-6 animate-fade-in">
-          <Suspense fallback={<TabSkeleton />}>
-            <DistributionTab />
-          </Suspense>
+          <ErrorBoundary section="Distribution">
+            <Suspense fallback={<TabSkeleton />}>
+              <DistributionTab />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       )}
 
       {/* Performance tab */}
       {activeTab === 'performance' && (
         <main className="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 animate-fade-in">
-          <Suspense fallback={<TabSkeleton />}>
-            <PerformanceTab />
-          </Suspense>
+          <ErrorBoundary section="Performance">
+            <Suspense fallback={<TabSkeleton />}>
+              <PerformanceTab />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       )}
 

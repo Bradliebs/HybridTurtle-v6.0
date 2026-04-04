@@ -1,8 +1,8 @@
 # ============================================================
-# HybridTurtle - Register Nightly Scheduled Task
+# HybridTurtle - Register Intraday Alert Scheduled Task
 # ============================================================
-# Called from register-nightly-task.bat (already elevated)
-# OR right-click -> Run with PowerShell (self-elevates)
+# Checks live prices against signal triggers and auto-applies stops.
+# Sends a focused Telegram summary at 15:30 UK time on weekdays.
 # ============================================================
 
 param([switch]$FromBat)
@@ -16,7 +16,7 @@ if (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 Write-Host ""
 Write-Host "  ==========================================================" -ForegroundColor Cyan
-Write-Host "   HybridTurtle - Registering Nightly Scheduled Task" -ForegroundColor Cyan
+Write-Host "   HybridTurtle - Registering Intraday Alert Scheduled Task" -ForegroundColor Cyan
 Write-Host "  ==========================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -25,27 +25,28 @@ try {
     $ProjectDir = Split-Path -Parent $PSCommandPath
 
     # Remove existing task if present
-    $existing = Get-ScheduledTask -TaskName "HybridTurtle Nightly" -ErrorAction SilentlyContinue
+    $existing = Get-ScheduledTask -TaskName "HybridTurtle Intraday Alert" -ErrorAction SilentlyContinue
     if ($existing) {
         Write-Host "  Removing existing task..." -ForegroundColor Yellow
-        Unregister-ScheduledTask -TaskName "HybridTurtle Nightly" -Confirm:$false
+        Unregister-ScheduledTask -TaskName "HybridTurtle Intraday Alert" -Confirm:$false
     }
 
     $Action = New-ScheduledTaskAction `
         -Execute "cmd.exe" `
-        -Argument "/c `"$ProjectDir\nightly-task.bat`" --scheduled" `
+        -Argument "/c `"$ProjectDir\intraday-alert-task.bat`" --scheduled" `
         -WorkingDirectory $ProjectDir
 
+    # Trigger: Mon-Fri at 15:30 (3:30 PM UK time)
     $Trigger = New-ScheduledTaskTrigger `
         -Weekly `
         -DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday `
-        -At 21:30
+        -At 15:30
 
     $Settings = New-ScheduledTaskSettingsSet `
         -StartWhenAvailable `
         -DontStopIfGoingOnBatteries `
         -AllowStartIfOnBatteries `
-        -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+        -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
 
     $Principal = New-ScheduledTaskPrincipal `
         -UserId "$env:USERNAME" `
@@ -53,33 +54,34 @@ try {
         -RunLevel Highest
 
     $task = Register-ScheduledTask `
-        -TaskName "HybridTurtle Nightly" `
+        -TaskName "HybridTurtle Intraday Alert" `
         -Action $Action `
         -Trigger $Trigger `
         -Settings $Settings `
         -Principal $Principal `
-        -Description "HybridTurtle 9-step nightly pipeline"
+        -Description "HybridTurtle intraday trigger check & auto-stop ratchet (Mon-Fri 15:30)"
 
     Write-Host ""
-    Write-Host "  SUCCESS: Task 'HybridTurtle Nightly' registered!" -ForegroundColor Green
+    Write-Host "  Task registered successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  Schedule:    Mon-Fri at 21:30" -ForegroundColor White
-    Write-Host "  Elevated:    Yes" -ForegroundColor White
-    Write-Host "  Missed runs: Will run on next login" -ForegroundColor White
-    Write-Host "  Logon type:  S4U (runs whether or not logged in)" -ForegroundColor White
+    Write-Host "  Schedule: Mon-Fri at 15:30" -ForegroundColor White
+    Write-Host "  Action:   intraday-alert-task.bat --scheduled" -ForegroundColor White
+    Write-Host "  Timeout:  15 minutes" -ForegroundColor White
     Write-Host ""
-
-    # Write result for verification
-    "SUCCESS" | Out-File "$ProjectDir\schtask-result.txt"
+    Write-Host "  To test now:  double-click intraday-alert-task.bat" -ForegroundColor Yellow
+    Write-Host "  To remove:    schtasks /delete /tn `"HybridTurtle Intraday Alert`" /f" -ForegroundColor Yellow
+    Write-Host ""
 
 } catch {
     Write-Host ""
-    Write-Host "  FAILED: $($_.Exception.Message)" -ForegroundColor Red
-    "FAILED: $($_.Exception.Message)" | Out-File "$ProjectDir\schtask-result.txt"
+    Write-Host "  FAILED to register task: $_" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "  Try running as administrator, or register manually:" -ForegroundColor Yellow
+    Write-Host "    schtasks /create /tn `"HybridTurtle Intraday Alert`" /tr `"cmd /c intraday-alert-task.bat --scheduled`" /sc weekly /d MON,TUE,WED,THU,FRI /st 15:30 /ru %USERNAME%" -ForegroundColor Gray
+    Write-Host ""
 }
 
-Write-Host ""
 if (-NOT $FromBat) {
-    Write-Host "  Press any key to close..."
+    Write-Host "Press any key to close..."
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }

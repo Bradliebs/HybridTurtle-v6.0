@@ -13,6 +13,7 @@
     "broker:sync": "tsx scripts/broker-sync.ts",
     "broker:scheduler": "tsx scripts/start-broker-sync-scheduler.ts",
     "stops:auto": "tsx scripts/start-auto-stop-scheduler.ts",
+    "intraday:alert": "tsx scripts/run-intraday-alert.ts",
     "portfolio:view": "tsx scripts/show-portfolio.ts",
     "workflow:run": "tsx scripts/run-tonight-workflow.ts",
     "workflow:card": "tsx scripts/show-tonight-workflow-card.ts",

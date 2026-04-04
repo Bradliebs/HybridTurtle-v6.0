@@ -198,6 +198,10 @@ export async function runAutoStopCycle(userId: string = 'default-user'): Promise
           } catch (fallbackErr) {
             detail.error = `T212 fallback failed: ${(fallbackErr as Error).message}`;
             result.t212Failed++;
+            // Both accounts failed — clear accountType so next cycle tries both
+            try {
+              await prisma.position.update({ where: { id: pos.id }, data: { accountType: null } });
+            } catch { /* best-effort reset */ }
           }
         } else {
           detail.error = `T212: ${msg}`;

@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import crypto from 'crypto';
 import { parseCommand, handleCommand, type TelegramUpdate } from '@/lib/telegram-commands';
 
 // Zod schema for Telegram Update (loose — only what we need)
@@ -38,8 +39,11 @@ export async function POST(request: NextRequest) {
     // Telegram then sends it back in X-Telegram-Bot-Api-Secret-Token on every update.
     const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
     if (webhookSecret) {
-      const headerSecret = request.headers.get('x-telegram-bot-api-secret-token');
-      if (headerSecret !== webhookSecret) {
+      const headerSecret = request.headers.get('x-telegram-bot-api-secret-token') ?? '';
+      // Use constant-time comparison to prevent timing attacks
+      const secretBuffer = Buffer.from(webhookSecret);
+      const headerBuffer = Buffer.from(headerSecret);
+      if (secretBuffer.length !== headerBuffer.length || !crypto.timingSafeEqual(secretBuffer, headerBuffer)) {
         console.warn('[telegram/webhook] Invalid or missing webhook secret token');
         return NextResponse.json({ ok: true }); // 200 always — avoid Telegram retry loops
       }

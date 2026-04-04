@@ -236,6 +236,7 @@ async function runNightlyProcess() {
       // Fall back to raw prices so downstream steps can still run
       gbpPrices = { ...livePrices };
       console.error('  [2] FX normalisation failed, using raw prices as fallback:', (error as Error).message);
+      alerts.push('🔴 FX normalisation failed — all GBP calculations (equity, risk %, sizing) may be inaccurate for non-GBP positions');
     }
     console.log(`        ${positions.length} positions, ${Object.keys(livePrices).length} prices fetched`);
 
@@ -507,10 +508,11 @@ async function runNightlyProcess() {
     try {
       const NEAR_STOP_THRESHOLD = 0.03; // 3%
 
-      // Fetch nearStopAlertSentAt for open positions (may not be in Prisma types yet)
-      const alertFlags = await prisma.$queryRawUnsafe<Array<{ id: string; nearStopAlertSentAt: string | null }>>(
-        'SELECT "id", "nearStopAlertSentAt" FROM "Position" WHERE "status" = \'OPEN\''
-      );
+      // Fetch nearStopAlertSentAt for open positions
+      const alertFlags = await prisma.position.findMany({
+        where: { userId, status: 'OPEN' },
+        select: { id: true, nearStopAlertSentAt: true },
+      });
       const alertFlagMap = new Map(alertFlags.map((r) => [r.id, r.nearStopAlertSentAt]));
 
       for (const p of positions) {
@@ -544,11 +546,10 @@ async function runNightlyProcess() {
         });
 
         // Mark as alerted — prevents duplicate alerts until stop moves
-        await prisma.$executeRawUnsafe(
-          'UPDATE "Position" SET "nearStopAlertSentAt" = ? WHERE "id" = ?',
-          new Date().toISOString(),
-          p.id
-        );
+        await prisma.position.update({
+          where: { id: p.id },
+          data: { nearStopAlertSentAt: new Date() },
+        });
 
         nearStopCount++;
       }

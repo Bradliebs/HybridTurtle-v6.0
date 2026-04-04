@@ -19,10 +19,16 @@ async function runWatchdog(): Promise<void> {
 
   const alerts: string[] = [];
 
-  // Check nightly heartbeat
+  // Check nightly heartbeat (nightly writes SUCCESS/PARTIAL/FAILED; OK is midday/intraday)
   const latestNightly = await prisma.heartbeat.findFirst({
     where: {
-      status: { in: ['SUCCESS', 'FAILED', 'PARTIAL', 'OK'] },
+      status: { in: ['SUCCESS', 'FAILED', 'PARTIAL'] },
+      NOT: {
+        OR: [
+          { details: { contains: 'midday' } },
+          { details: { contains: 'intraday' } },
+        ],
+      },
     },
     orderBy: { timestamp: 'desc' },
   });

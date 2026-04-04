@@ -58,6 +58,7 @@ export default function SafetyControlsPanel() {
   const [marketData, setMarketData] = useState<MarketDataSafetyStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingKey, setSavingKey] = useState<keyof Omit<KillSwitchSettings, 'updatedAt'> | null>(null);
+  const [confirmKey, setConfirmKey] = useState<keyof Omit<KillSwitchSettings, 'updatedAt'> | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +81,7 @@ export default function SafetyControlsPanel() {
     }
 
     setSavingKey(key);
+    setConfirmKey(null);
     try {
       const data = await apiRequest<KillSwitchResponse>('/api/settings/kill-switches', {
         method: 'PATCH',
@@ -115,22 +117,48 @@ export default function SafetyControlsPanel() {
             description="Hard stop on every order submission path, including manual execution and workflow-driven submission."
             checked={settings.disableAllSubmissions}
             saving={savingKey === 'disableAllSubmissions'}
-            onToggle={() => updateSwitch('disableAllSubmissions')}
+            onToggle={() => setConfirmKey('disableAllSubmissions')}
           />
           <ToggleRow
             label="Disable automated submissions only"
             description="Blocks workflow and script-driven submissions while leaving manual user execution available."
             checked={settings.disableAutomatedSubmissions}
             saving={savingKey === 'disableAutomatedSubmissions'}
-            onToggle={() => updateSwitch('disableAutomatedSubmissions')}
+            onToggle={() => setConfirmKey('disableAutomatedSubmissions')}
           />
           <ToggleRow
             label="Disable scans when data is stale"
             description="Suppresses new scan runs whenever stale market data is detected, matching the safe-failure rule in the build order."
             checked={settings.disableScansWhenDataStale}
             saving={savingKey === 'disableScansWhenDataStale'}
-            onToggle={() => updateSwitch('disableScansWhenDataStale')}
+            onToggle={() => setConfirmKey('disableScansWhenDataStale')}
           />
+
+          {/* Confirmation modal */}
+          {confirmKey && (
+            <div className="rounded-lg border border-amber-500/50 bg-amber-950/40 p-4">
+              <p className="text-sm font-medium text-amber-300">
+                {settings[confirmKey]
+                  ? `Re-enable "${confirmKey.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}"?`
+                  : `Disable "${confirmKey.replace(/([A-Z])/g, ' $1').toLowerCase().trim()}"?`}
+              </p>
+              <p className="mt-1 text-xs text-amber-400/70">This is a safety-critical control that affects live trading.</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => updateSwitch(confirmKey)}
+                  className="rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmKey(null)}
+                  className="rounded bg-navy-700 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-navy-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-lg border border-border bg-navy-800/50 px-4 py-3 text-xs text-muted-foreground">
             <div>

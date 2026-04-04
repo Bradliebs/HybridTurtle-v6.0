@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Navbar from '@/components/shared/Navbar';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import StageFunnel from '@/components/scan/StageFunnel';
 import TechnicalFilterGrid from '@/components/scan/TechnicalFilterGrid';
 import CandidateTable from '@/components/scan/CandidateTable';
@@ -460,18 +461,22 @@ function ScanPageInner() {
             TAB: Scores
            ══════════════════════════════════════════════════ */}
         {activeTab === 'scores' && (
-          <Suspense fallback={<TabSkeleton />}>
-            <ScoresTab />
-          </Suspense>
+          <ErrorBoundary section="Scores">
+            <Suspense fallback={<TabSkeleton />}>
+              <ScoresTab />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {/* ══════════════════════════════════════════════════
             TAB: Cross-Reference
            ══════════════════════════════════════════════════ */}
         {activeTab === 'cross-ref' && (
-          <Suspense fallback={<TabSkeleton />}>
-            <CrossRefTab />
-          </Suspense>
+          <ErrorBoundary section="Cross-Reference">
+            <Suspense fallback={<TabSkeleton />}>
+              <CrossRefTab />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {/* ══════════════════════════════════════════════════
