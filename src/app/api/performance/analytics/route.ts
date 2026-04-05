@@ -6,6 +6,7 @@ import prisma from '@/lib/prisma';
 import { ensureDefaultUser } from '@/lib/default-user';
 import { apiError } from '@/lib/api-response';
 import { parseQueryParams } from '@/lib/request-validation';
+import { getFXRate } from '@/lib/market-data';
 
 /**
  * DEPENDENCIES
@@ -132,7 +133,7 @@ export async function GET(request: NextRequest) {
 
     const openPositions = await prisma.position.findMany({
       where: { userId, status: 'OPEN', ...accountWhere },
-      include: { stock: { select: { ticker: true } } },
+      include: { stock: { select: { ticker: true, currency: true } } },
       orderBy: { entryDate: 'desc' },
     });
 
@@ -177,14 +178,39 @@ export async function GET(request: NextRequest) {
       accountBalance = (user?.t212TotalValue ?? 0) + (user?.t212IsaTotalValue ?? 0) || (user?.equity ?? 0);
     }
 
-    // Trade risk = sum of (entry price * shares * initialRisk/entryPrice) for open positions
+    // Trade risk = sum of per-position risk, normalised to GBP
+    // UK tickers (GBX) need ÷100; foreign currencies need FX conversion
+    const fxCache = new Map<string, number>();
     let tradeRisk = 0;
     for (const p of openPositions) {
+      let riskLocal: number;
       if (p.currentStop > 0) {
-        tradeRisk += Math.max(0, p.entryPrice - p.currentStop) * p.shares;
+        riskLocal = Math.max(0, p.entryPrice - p.currentStop) * p.shares;
       } else {
-        tradeRisk += p.initialRisk * p.shares;
+        riskLocal = p.initialRisk * p.shares;
       }
+
+      // Convert to GBP based on the stock's price currency
+      const ticker = p.stock.ticker;
+      const isUK = ticker.endsWith('.L') || /^[A-Z]{2,5}l$/.test(ticker);
+      if (isUK) {
+        // Prices in pence (GBX) — divide by 100 for pounds
+        riskLocal /= 100;
+      } else {
+        const currency = (p.stock.currency || 'USD').toUpperCase();
+        if (currency !== 'GBP') {
+          if (!fxCache.has(currency)) {
+            try {
+              fxCache.set(currency, await getFXRate(currency, 'GBP'));
+            } catch {
+              fxCache.set(currency, 1); // safe fallback
+            }
+          }
+          riskLocal *= fxCache.get(currency)!;
+        }
+      }
+
+      tradeRisk += riskLocal;
     }
 
     const account = {
