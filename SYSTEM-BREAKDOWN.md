@@ -16,9 +16,9 @@ A systematic trading dashboard for momentum trend-following across ~268 tickers 
 - **Account:** Small account (SMALL_ACCOUNT risk profile)
 - **Testing:** Vitest + Zod validation
 - **Auth:** NextAuth JWT (optional — single-user local app)
-- **Pages:** 28 content pages + 5 redirects
-- **API Routes:** 46 route groups (~109 endpoints)
-- **DB Tables:** 69 (grew from original 24 core + 16 prediction engine)
+- **Pages:** 34 content pages + 5 redirects
+- **API Routes:** ~50 route groups (~110 endpoints)
+- **DB Tables:** 69 (grew from original 24 core + 16 prediction engine + 29 infrastructure/trading systems)
 - **Prediction Engine:** 17 phases + Phase 6 prediction model (conformal, failure modes, signal weighting, stress test, MI audit, immune system, lead-lag, GNN, Bayesian, Kelly, Meta-RL, VPIN, sentiment, TDA, execution quality, TradePulse, causal invariance, Phase 6 Ridge regression)
 
 ---
@@ -111,6 +111,30 @@ Email/password authentication via NextAuth.
 ### `/register` — Registration
 Account creation with password validation.
 
+### `/candidates` — Candidate Pipeline *(added)*
+Scan candidates with trade readiness indicators, filterable by status and sleeve.
+**Components:** `Navbar`
+
+### `/planned-trades` — Planned Trades *(added)*
+Manage planned trade entries with status tracking, risk evaluation, and transition validation.
+**Components:** `Navbar`
+
+### `/orders` — Broker Orders *(added)*
+View and filter broker order history with pagination.
+**Components:** `Navbar`
+
+### `/jobs` — Job Monitor *(added)*
+Monitor background job runs (nightly, sync, refresh) with status and duration.
+**Components:** `Navbar`
+
+### `/alerts` — Active Alerts *(added)*
+View and manage active trading alerts (stop-hit, trigger-met, near-stop, breakout failure).
+**Components:** `Navbar`
+
+### `/stops` — Stop Dashboard *(added)*
+Dedicated stop-loss management view with auto-stop controls and stop recommendations.
+**Components:** `Navbar`
+
 ### Redirect Pages
 | Route | Redirects To |
 |-------|-------------|
@@ -122,7 +146,7 @@ Account creation with password validation.
 
 ---
 
-## 3. API Routes (46 Route Groups)
+## 3. API Routes (~50 Route Groups)
 
 ### Core Routes
 
@@ -193,6 +217,24 @@ Account creation with password validation.
 | `/api/feature-flags` | GET | Active feature flags |
 | `/api/backtest` | GET | Signal replay backtest |
 | `/api/backtest/compare` | GET | FULL vs CORE_LITE comparison |
+| `/api/backtests/run` | POST | Execute backtest run |
+| `/api/backtests/[id]` | GET | Retrieve backtest result by ID |
+| `/api/stops/auto` | POST | Auto-stop application |
+| `/api/stops/apply` | POST | One-click apply: DB write + T212 order |
+| `/api/market-data/refresh-stale` | POST | Refresh stale market data |
+| `/api/settings/kill-switches` | GET, PUT | Safety kill-switch controls |
+| `/api/performance/analytics` | GET | Performance analytics breakdown |
+| `/api/candidates` | GET | Candidate pipeline data |
+| `/api/alerts/active` | GET | Active trading alerts |
+| `/api/review/summary` | GET | Review summary data |
+| `/api/models/versions` | GET | ML model version history |
+| `/api/models/predict-candidates` | POST | ML prediction for candidates |
+| `/api/models/predict-risk` | POST | ML risk prediction |
+| `/api/broker/orders` | GET | Broker order listing with pagination and filters |
+| `/api/audit-events` | GET | Generic audit event log with pagination and filters |
+| `/api/workflow/tonight` | GET, POST | Tonight's workflow card data; run evening workflow |
+| `/api/plans/[id]` | PATCH | Update planned trade status/fields with transition validation |
+| `/api/risk/evaluate-plan` | POST | Standalone risk evaluation for candidate batches |
 
 ### Analytics Routes
 
@@ -336,6 +378,16 @@ Account creation with password validation.
 | `module-buckets.ts` | Module result grouping. |
 | `modules-cache.ts` | Module result caching (10-min TTL). |
 | `risk-fields.ts` | Risk field computations. |
+| `auto-stop-service.ts` | Auto-stop management and scheduling. |
+| `combined-risk-gate.ts` | Combined risk gate calculations. |
+| `quality-filter.ts` | Quality filtering for data/candidates. |
+| `quality-cache.ts` | Quality filter result caching. |
+| `safety-alerts.ts` | Safety alert management. |
+| `seasonal-overlay.ts` | Seasonal data overlay. |
+| `vix-regime.ts` | VIX regime detection and handling. |
+| `synced-entry-trade-log.ts` | Alternative trade logging for synced entries. |
+| `logger.ts` | Logging utility. |
+| `research-loop.ts` | Research loop for candidate enrichment. |
 
 ---
 
@@ -374,7 +426,7 @@ Runs via `nightly-task.bat` / Windows Task Scheduler (Mon-Fri 21:30). Runs unatt
 | 0b | DB Backup | `backupDatabase()` | SQLite backup to `/prisma/backups/` |
 | 1 | Health Check | `runHealthCheck()` | 16-point audit → RED/YELLOW/GREEN |
 | 2 | Live Prices + Sync | `fetchWithFallback()` | **2b**: T212 position auto-closure detection |
-| 3 | Stop Management | `generateStopRecommendations()` | **3a**: R-based stops. **3b**: Trailing ATR. **3c**: Gap risk (HIGH_RISK). **3d**: Stop-hit alerts. **3e**: Breakout failure detection |
+| 3 | Stop Management | `generateStopRecommendations()` | **3a**: R-based stops. **3b**: Trailing ATR. **3c**: Gap risk (HIGH_RISK). **3d**: Stop-hit alerts. **3e**: Breakout failure detection. **3f**: Near-stop alert (within 3% of stop) |
 | 4 | Laggard Detection | `detectLaggards()` | TRIM_LAGGARD / DEAD_MONEY flags |
 | 5 | Risk Modules | Climax, Swap, Whipsaw, Breadth, Correlation | Module-level risk signals |
 | 6 | Equity Snapshot | `recordEquitySnapshot()` | Rate-limited (6h). **6b**: Equity milestones (£1K/£2K/£5K) |
@@ -399,7 +451,7 @@ Runs daily at 10:00 AM UK time. Checks if nightly heartbeat is >26 hours stale. 
 
 ---
 
-## 7. Database Schema (40 Tables)
+## 7. Database Schema (69 Tables)
 
 ### Core Tables (24)
 
@@ -450,6 +502,50 @@ Runs daily at 10:00 AM UK time. Checks if nightly heartbeat is >26 hours stale. 
 | `VPINHistory` | VPIN/DOFI computations per ticker per day |
 | `SentimentHistory` | Sentiment Composite Scores with source breakdown |
 | `InvarianceAuditResult` | IRM analysis: per-signal invariance + β values |
+
+### Data & Broker Infrastructure Tables (20) *(added)*
+
+| Table | Purpose |
+|-------|---------|
+| `Instrument` | Instrument metadata from data layer |
+| `DailyBar` | OHLCV daily bar storage |
+| `DataRefreshRun` | Data refresh run metadata |
+| `DataRefreshResult` | Per-ticker data refresh results |
+| `PortfolioSnapshot` | Portfolio-level snapshot data |
+| `BrokerPosition` | Broker position tracking |
+| `BrokerOrder` | Broker order tracking |
+| `PlannedTrade` | Planned trade entries with status transitions |
+| `ProtectiveStop` | Protective stop-loss records |
+| `SignalRun` | Signal scan run metadata |
+| `SignalCandidate` | Signal scan candidate results |
+| `RiskSnapshot` | Risk state snapshots |
+| `JobRun` | Background job run tracking |
+| `BrokerSyncRun` | Broker sync run metadata |
+| `EveningWorkflowRun` | Evening workflow run metadata |
+| `EveningWorkflowStepRun` | Per-step evening workflow results |
+| `AuditEvent` | Generic audit event log |
+| `AppSetting` | Application configuration settings |
+| `VixSnapshot` | VIX data snapshots |
+| `SeasonalSnapshot` | Seasonal pattern data |
+
+### Market Data Cache Tables (1) *(added)*
+
+| Table | Purpose |
+|-------|---------|
+| `QualitySnapshot` | Quality filter result cache |
+
+### Trading System Tables (8) *(added)*
+
+| Table | Purpose |
+|-------|---------|
+| `BacktestRun` | Backtest run metadata and results |
+| `PeadCandidate` | Post-Earnings Announcement Drift candidates |
+| `PeadPosition` | PEAD position tracking |
+| `PeadDailySnapshot` | PEAD daily position snapshots |
+| `PairFormation` | Pairs trading formation metadata |
+| `PairPosition` | Pairs trading position tracking |
+| `PairDailySnapshot` | Pairs trading daily snapshots |
+| `PairZScoreSnapshot` | Pairs trading Z-score snapshots |
 
 ---
 
@@ -930,19 +1026,19 @@ src/
 
 | Category | Count |
 |----------|-------|
-| Content Pages | 26 |
+| Content Pages | 34 |
 | Redirect Pages | 5 |
-| API Route Groups | 44 |
-| API Endpoints | ~105 |
+| API Route Groups | ~50 |
+| API Endpoints | ~110 |
 | DB Tables | 69 |
 | Sacred Files | 6 |
-| Lib Modules | ~75 |
+| Lib Modules | ~85 |
 | Trading Modules | 16 |
 | Prediction Engine Files | ~30 |
-| Components | ~60 |
-| Test Files | 36 |
-| Scripts (.bat) | 16 |
+| Components | ~75 |
+| Test Files | 45 |
+| Scripts (.bat) | 19 |
 
 ---
 
-*Last updated: 9 March 2026*
+*Last updated: 10 April 2026*

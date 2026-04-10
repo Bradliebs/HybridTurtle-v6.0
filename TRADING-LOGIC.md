@@ -1,7 +1,7 @@
 # Hybrid-Turtle — Complete Trading Logic Reference
 
 > Auto-generated reference of all trading rules, thresholds, and decision logic.
-> Last verified against source code: **2 April 2026**
+> Last verified against source code: **10 April 2026**
 
 ---
 
@@ -428,7 +428,7 @@ Replaces the old `marketTailwind()`. Consolidates directional regime, volatility
 | Volume Risk | 0–30 | `30 × clamp(1 − (volRatio − 0.6) / 0.6)` |
 | Extension Risk | 0–25 | Both chasing flags = 25; either = 15; none = 0 |
 | Marginal Trend Risk | 0–10 | ADX < 20 → 10; 20–25 → 7; 25–30 → 3; > 30 → 0 |
-| Vol Shock Risk | 0–20 | `atr_spiking` → 10 (reduced from 20 per OVERLAP-02); `atr_collapsing` → 10; else 0 |
+| Vol Shock Risk | 0–10 | `atr_spiking` → 10 (reduced from 20 per OVERLAP-02); `atr_collapsing` → 10; else 0 |
 | Regime Instability | 0–10 | Not stable → 10; stable → 0 |
 
 ### Penalties (applied to NCS)
@@ -1165,4 +1165,4 @@ All prediction phases operate as **post-processing layers** on top of the core N
 
 ---
 
-*Last verified against source code: 7 March 2026*
+*Last verified against source code: 10 April 2026*

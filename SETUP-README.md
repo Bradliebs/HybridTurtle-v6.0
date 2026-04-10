@@ -38,13 +38,14 @@ A systematic trading dashboard built on the Turtle Trading methodology with mode
 | `package.bat` | Package the app into a distributable zip |
 | `nightly-task.bat` | Run nightly automation (Mon-Fri 21:30) |
 | `watchdog-task.bat` | Check for missed nightly heartbeats, send Telegram alert |
-| `midday-sync-task.bat` | Lightweight intra-day T212 position sync |
+| `midday-sync-task.bat` | Lightweight intra-day T212 position sync (Mon-Fri 10:00, 13:00, 16:00, 19:00) |
 | `intraday-alert-task.bat` | Intraday trigger check + auto-stop ratchet (Mon-Fri 15:30) |
-| `auto-stop-task.bat` | Auto-stop ratchet scheduler (starts at logon) |
-| `register-nightly-task.bat` | Register nightly as a Windows Scheduled Task |
+| `auto-stop-task.bat` | Auto-stop ratchet scheduler (at logon + hourly on weekdays) |
+| `research-refresh-task.bat` | Research data refresh (candidate outcomes) |
+| `register-nightly-task.bat` | Register nightly as a Windows Scheduled Task (Mon-Fri 21:30) |
 | `register-watchdog-task.bat` | Register watchdog as a Windows Scheduled Task (10:00 AM daily) |
 | `register-midday-sync.bat` | Register midday sync as a Windows Scheduled Task |
-| `register-intraday-alert.bat` | Register intraday alert as a Windows Scheduled Task |
+| `register-intraday-alert.bat` | Register intraday alert as a Windows Scheduled Task (Mon-Fri 15:30) |
 | `register-auto-stop-task.bat` | Register auto-stop as a Windows Scheduled Task |
 | `fix-account-types.bat` | Fix ISA vs Invest account type mismatches |
 | `restore-backup.bat` | Restore database from a backup (emergency use) |
@@ -54,7 +55,7 @@ A systematic trading dashboard built on the Turtle Trading methodology with mode
 ## System Requirements
 
 - **Windows 10 or 11**
-- **Node.js 20 or 22 LTS** (choose the **LTS** tab on nodejs.org)
+- **Node.js 18+** (20 or 22 LTS recommended — choose the **LTS** tab on nodejs.org)
 - **4 GB RAM** minimum
 - **Internet connection** (for live market data from Yahoo Finance)
 
@@ -127,6 +128,51 @@ Trading 212 uses Basic Auth with base64 encoding, not a bearer token. Verify you
 
 ---
 
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure. Key variables:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | SQLite path (default: `file:./dev.db`) |
+| `NEXTAUTH_URL` | Yes | App URL (default: `http://localhost:3000`) |
+| `NEXTAUTH_SECRET` | Yes | Random secret for JWT signing |
+| `CRON_SECRET` | Yes | Secret for authenticating cron/nightly API calls |
+| `BROKER_ADAPTER` | No | `disabled` (default), `mock`, or `trading212` |
+| `T212_INVEST_API_KEY` | If T212 | Trading 212 Invest account API key |
+| `T212_ISA_API_KEY` | If T212 | Trading 212 ISA account API key |
+| `T212_INVEST_ACCOUNT_ID` | If T212 | Trading 212 Invest account ID |
+| `T212_ISA_ACCOUNT_ID` | If T212 | Trading 212 ISA account ID |
+| `T212_ENVIRONMENT` | If T212 | `live` or `demo` |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
+| `TELEGRAM_CHAT_ID` | No | Telegram chat ID for notifications |
+| `ENABLE_TELEGRAM_ALERTS` | No | Enable/disable Telegram alerts |
+| `ENABLE_BROKER_TRADING` | No | Enable live broker execution |
+| `ENABLE_AUTO_SUBMISSION` | No | Enable auto-submission of orders |
+| `MARKET_DATA_PROVIDER` | No | `yahoo` (default) or `eodhd` |
+| `EODHD_API_KEY` | If EODHD | EODHD API key |
+| `MODEL_SERVICE_URL` | No | Python model service URL (Docker) |
+| `ENABLE_ML_SCORING` | No | Enable ML prediction scoring |
+
+See `.env.example` for the complete list with defaults.
+
+---
+
+## Scheduled Tasks
+
+| Task | Schedule | Purpose |
+|------|----------|---------|
+| **Nightly** | Mon-Fri 21:30 | Full 10-step pipeline (health, stops, laggards, risk, equity, scan, Telegram) |
+| **Watchdog** | Daily 10:00 | Check nightly heartbeat — alert if missed |
+| **Midday Sync** | Mon-Fri 10:00, 13:00, 16:00, 19:00 | T212 position auto-closure detection |
+| **Intraday Alert** | Mon-Fri 15:30 | Trigger check + auto-stop ratchet |
+| **Auto-Stop** | At logon + hourly on weekdays | Stop ratchet scheduler (requires Settings toggle ON) |
+| **Research Refresh** | Manual / scheduled | Candidate outcome data refresh |
+
+All tasks are registered via their `register-*.bat` files (run as Administrator).
+
+---
+
 ## For Developers
 
 ```bash
@@ -137,12 +183,47 @@ npm run dev
 npm run build && npm start
 
 # Database management
-npm run db:studio             # Visual database browser
+npm run db:studio              # Visual database browser
 npm run db:deploy              # Apply pending schema migrations
+npm run db:migrate             # Create new migration
+npm run db:generate            # Regenerate Prisma client
 npm run db:seed                # Re-seed stock universe
+npm run db:status              # Show migration status
+npm run db:auto-migrate        # Auto-apply pending migrations
 
-# Auto-stop autopilot scheduler
+# Trading operations
+npm run workflow:run           # Run nightly workflow pipeline
+npm run workflow:card          # Show tonight's workflow card
+npm run signals:run            # Run signal scan
+npm run signals:view           # Show signal candidates
+npm run broker:sync            # Sync Trading 212 positions
+npm run broker:scheduler       # Run broker sync scheduler
+npm run portfolio:view         # Show portfolio state
+npm run stops:view             # Show stop dashboard
 npm run stops:auto             # Hourly stop ratchet (requires toggle ON in Settings)
+npm run risk:state             # Show risk account state
+npm run intraday:alert         # Run intraday trigger checks
+
+# Market data
+npm run refresh:daily-bars     # Refresh daily OHLCV data
+npm run market-data:scheduler  # Run market data scheduler
+npm run validate:universe      # Validate ticker universe
+
+# Testing & diagnostics
+npm run test:unit              # Run unit tests (vitest)
+npm run test:unit:watch        # Watch-mode tests
+npm run audit:harness          # Run audit harness
+npm run fix:account-types      # Fix ISA/Invest account type mismatches
+npm run lint                   # ESLint
+```
+
+### Docker (Alternative)
+
+Docker Compose is available for containerised deployment. See `docs/DEPLOYMENT.md` for full instructions.
+
+```bash
+docker compose up              # Start app + SQLite
+docker compose --profile model up  # Include optional Python model service
 ```
 
 ---
